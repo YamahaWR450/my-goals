@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MY GOALS - Auto Save</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #10b981; 
+            --primary-rgb: 16, 185, 129; 
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --week-bg: rgba(16, 185, 129, 0.15); 
+            --hover-bg: #f9fafb;
+            --chart-grid: #f3f4f6;
+            --col-width: 240px; 
+            --danger: #ef4444;
+        }
+
+        body.dark-mode {
+            --bg: #111827;
+            --card-bg: #1f2937;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --border: #374151;
+            --hover-bg: #374151;
+            --chart-grid: #374151;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            transition: background-color 0.3s;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1200px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 0; }
+            .app-container {
+                border-radius: 0;
+                padding: 15px;
+                min-height: 100vh;
+                box-shadow: none;
+            }
+            header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            h1 { text-align: center; font-size: 28px; }
+            .toolbar { justify-content: space-between; }
+            :root { --col-width: 160px; }
+            .chart-section { height: 250px; }
+            
+            .footer { flex-direction: column; gap: 5px; text-align: center; }
+            .footer .separator { display: none; }
+        }
+
+        /* HEADER */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 { 
+            font-family: 'Braggadocio', 'Arial Black', sans-serif;
+            font-size: 32px; margin: 0; letter-spacing: 1px;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+            color: var(--text-main);
+        }
+        body.dark-mode h1 { text-shadow: 2px 2px 0px rgba(0,0,0,0.5); }
+
+        .toolbar { display: flex; align-items: center; gap: 10px; }
+
+        .date-group {
+            display: flex; align-items: center; background: var(--bg);
+            padding: 5px 10px; border-radius: 10px; border: 1px solid var(--border);
+        }
+        .date-group input {
+            border: none; background: transparent; font-family: 'Inter'; font-weight: 700;
+            font-size: 14px; color: var(--primary); width: 65px; text-align: center; outline: none;
+        }
+        .btn-update {
+            background-color: var(--primary); color: white; border: none; padding: 6px 10px;
+            border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+        }
+
+        .icon-btn {
+            background: var(--bg); border: 1px solid var(--border); width: 36px; height: 36px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; position: relative; overflow: hidden;
+        }
+        .icon-btn svg { width: 18px; height: 18px; fill: var(--text-muted); }
+
+        input[type="color"] { position: absolute; opacity: 0; width: 100%; height: 100%; }
+        #colorPreview {
+            width: 16px; height: 16px; border-radius: 50%; background-color: var(--primary);
+            border: 2px solid var(--card-bg); box-shadow: 0 0 0 1px var(--text-muted);
+        }
+
+        /* TABELLE */
+        .table-wrapper {
+            flex-grow: 1;
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; 
+        }
+        .table-wrapper::-webkit-scrollbar { display: none; }
+
+        table { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+        
+        th, td {
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            background: var(--card-bg);
+        }
+
+        .sticky-col {
+            position: sticky; left: 0; z-index: 20; background-color: var(--card-bg);
+            width: var(--col-width); min-width: var(--col-width); max-width: var(--col-width);
+            border-right: 2px solid var(--border);
+        }
+
+        .week-cell {
+            background-color: var(--week-bg); color: var(--primary);
+            font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+            padding: 8px 0; text-align: center; border-bottom: 2px solid var(--card-bg);
+        }
+
+        .day-name { font-size: 9px; color: var(--text-muted); text-align: center; padding-top: 6px; }
+        .day-num { font-size: 13px; font-weight: 700; color: var(--text-main); text-align: center; padding-bottom: 6px; }
+
+        .header-col-goals {
+            padding: 0 10px; font-size: 11px; font-weight: 700; color: var(--text-muted);
+            vertical-align: middle; height: 50px;
+        }
+
+        /* Goal Input Area */
+        .goal-wrapper {
+            display: flex;
+            align-items: center;
+            padding: 0 5px 0 10px;
+        }
+
+        .goal-input {
+            flex-grow: 1;
+            border: none; font-family: 'Inter'; font-size: 13px;
+            color: var(--text-main); padding: 10px 0; outline: none; background: transparent;
+        }
+
+        .btn-delete-goal {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 5px;
+            margin-left: 5px;
+            opacity: 0.3;
+            transition: all 0.2s;
+            font-size: 16px;
+            line-height: 1;
+        }
+        .btn-delete-goal:hover {
+            color: var(--danger);
+            opacity: 1;
+        }
+
+        .check-cell {
+            min-width: 36px; height: 44px; cursor: pointer; text-align: center; vertical-align: middle;
+            user-select: none;
+        }
+        .check-box {
+            width: 16px; height: 16px; border-radius: 4px; background-color: var(--border);
+            margin: 0 auto; transition: transform 0.1s;
+        }
+        .check-cell.active .check-box {
+            background-color: var(--primary); transform: scale(1.2);
+        }
+
+        /* Add Button Row */
+        .add-row-cell {
+            padding: 5px;
+            background: var(--bg);
+        }
+        .btn-add-goal {
+            width: 100%;
+            padding: 8px;
+            border: 1px dashed var(--text-muted);
+            color: var(--text-muted);
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-add-goal:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--week-bg);
+        }
+
+        .score-label {
+            text-align: right; font-size: 11px; font-weight: 600; color: var(--text-muted); padding-right: 10px;
+        }
+        .score-cell {
+            font-size: 9px; font-weight: 600; color: var(--text-muted); text-align: center;
+            background-color: var(--bg); padding: 8px 0;
+        }
+
+        .chart-section { width: 100%; height: 300px; }
+
+        /* FOOTER STYLE */
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .footer .quote { font-style: italic; font-weight: 400; }
+        .footer .author { font-weight: 700; color: var(--text-main); letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1>MY GOALS</h1>
+            
+            <div class="toolbar">
+                <div class="date-group">
+                    <input type="text" id="dateInput">
+                    <button class="btn-update" onclick="generateTracker()">Go</button>
+                </div>
+
+                <div class="icon-btn">
+                    <div id="colorPreview"></div>
+                    <input type="color" id="colorPicker" value="#10b981" oninput="changeColor(this.value, true)">
+                </div>
+
+                <div class="icon-btn" onclick="toggleTheme()">
+                    <svg id="themeIcon" viewBox="0 0 24 24">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </div>
+            </div>
+        </header>
+
+        <div class="table-wrapper">
+            <table id="trackerTable"></table>
+        </div>
+
+        <div class="chart-section">
+            <canvas id="productivityChart"></canvas>
+        </div>
+
+        <div class="footer">
+            <span class="quote">"Do something today that you'll be proud of tomorrow."</span>
+            <span class="separator">—</span>
+            <span class="author">by Silvan 2025</span>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+        let isMouseDown = false;
+        let shouldActivate = true;
+        const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        let daysInCurrentMonth = 0;
+
+        document.addEventListener('mousedown', () => isMouseDown = true);
+        document.addEventListener('mouseup', () => isMouseDown = false);
+
+        window.onload = function() {
+            loadGlobalSettings();
+            
+            // Setze Datum auf heute, wenn nicht anders gespeichert oder wenn leer
+            const now = new Date();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            const defaultDate = `${month}.${year}`;
+            
+            const savedLastDate = localStorage.getItem('last_active_date');
+            document.getElementById('dateInput').value = savedLastDate || defaultDate;
+
+            generateTracker();
+        };
+
+        /* --- SPEICHER & LADE LOGIK --- */
+        function loadGlobalSettings() {
+            const savedColor = localStorage.getItem('app_primary_color');
+            const savedTheme = localStorage.getItem('app_theme');
+
+            if (savedColor) {
+                document.getElementById('colorPicker').value = savedColor;
+                changeColor(savedColor, false);
+            }
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                changeColor(document.getElementById('colorPicker').value, false);
+            }
+        }
+
+        function saveGlobalSettings() {
+            const color = document.getElementById('colorPicker').value;
+            localStorage.setItem('app_primary_color', color);
+            
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('app_theme', isDark ? 'dark' : 'light');
+        }
+
+        function saveDataForMonth() {
+            const dateKey = document.getElementById('dateInput').value;
+            // Speicher letztes Datum für UX
+            localStorage.setItem('last_active_date', dateKey);
+
+            const goalsData = [];
+            const rows = document.querySelectorAll('.goal-row');
+            
+            rows.forEach(row => {
+                const name = row.querySelector('.goal-input').value;
+                const activeDays = [];
+                row.querySelectorAll('.check-cell.active').forEach(cell => {
+                    activeDays.push(parseInt(cell.dataset.day));
+                });
+                goalsData.push({ name: name, activeDays: activeDays });
+            });
+
+            const storageKey = `goals_data_${dateKey}`;
+            localStorage.setItem(storageKey, JSON.stringify(goalsData));
+        }
+
+        function loadDataForMonth(dateKey) {
+            const storageKey = `goals_data_${dateKey}`;
+            const json = localStorage.getItem(storageKey);
+            return json ? JSON.parse(json) : null;
+        }
+        /* --------------------------- */
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            saveGlobalSettings();
+            changeColor(document.getElementById('colorPicker').value, false);
+        }
+
+        function changeColor(hex, save = true) {
+            document.documentElement.style.setProperty('--primary', hex);
+            const r = parseInt(hex.substr(1,2), 16);
+            const g = parseInt(hex.substr(3,2), 16);
+            const b = parseInt(hex.substr(5,2), 16);
+            document.documentElement.style.setProperty('--primary-rgb', `${r}, ${g}, ${b}`);
+            
+            const isDark = document.body.classList.contains('dark-mode');
+            const opacity = isDark ? 0.3 : 0.15;
+            document.documentElement.style.setProperty('--week-bg', `rgba(${r}, ${g}, ${b}, ${opacity})`);
+
+            document.getElementById('colorPreview').style.backgroundColor = hex;
+            updateChartColors();
+            if(save) saveGlobalSettings();
+        }
+
+        function generateTracker() {
+            const input = document.getElementById('dateInput').value;
+            const parts = input.split('.');
+            if (parts.length !== 2) { alert("Format: MM.YYYY"); return; }
+
+            const month = parseInt(parts[0]) - 1;
+            const year = parseInt(parts[1]);
+            const startDate = new Date(year, month, 1);
+            if (isNaN(startDate.getTime())) { alert("Ungültiges Datum"); return; }
+
+            // Save date immediately when valid
+            localStorage.setItem('last_active_date', input);
+
+            daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
+            const table = document.getElementById('trackerTable');
+            table.innerHTML = '';
+
+            // 1. Wochen
+            let rowWeek = table.insertRow();
+            let spacer = rowWeek.insertCell();
+            spacer.className = "sticky-col"; 
+            
+            let currentDay = 1;
+            let weekCount = 1;
+            while (currentDay <= daysInCurrentMonth) {
+                let endDay = currentDay + 6;
+                if (endDay > daysInCurrentMonth) endDay = daysInCurrentMonth;
+                let span = endDay - currentDay + 1;
+                let cell = rowWeek.insertCell();
+                cell.colSpan = span;
+                cell.className = 'week-cell';
+                cell.innerText = "WEEK " + weekCount;
+                currentDay += 7;
+                weekCount++;
+            }
+
+            // 2. Tage
+            let rowDays = table.insertRow();
+            let cellH = rowDays.insertCell();
+            cellH.className = 'sticky-col header-col-goals';
+            cellH.innerText = "GOALS";
+
+            for (let i = 1; i <= daysInCurrentMonth; i++) {
+                let d = new Date(year, month, i);
+                let dayName = weekDays[d.getDay()];
+                let cell = rowDays.insertCell();
+                cell.innerHTML = `<div class="day-name">${dayName}</div><div class="day-num">${i}</div>`;
+                cell.style.textAlign = "center";
+            }
+
+            // LADE DATEN
+            const savedData = loadDataForMonth(input);
+
+            if (savedData && savedData.length > 0) {
+                // Wenn Daten existieren, erstelle Zeilen daraus
+                savedData.forEach(goalObj => {
+                    addGoalRow(goalObj.name, table, goalObj.activeDays);
+                });
+            } else {
+                // Wenn keine Daten, erstelle 5 leere Zeilen
+                for (let i = 1; i <= 5; i++) {
+                    addGoalRow(`Goal ${i}`, table, []);
+                }
+            }
+
+            renderAddButtonRow(table);
+            renderScoreRow(table);
+            
+            // Score initial berechnen nach dem Aufbau
+            calculateScores(false); // false = kein erneutes Speichern beim Laden
+            initChart(daysInCurrentMonth);
+        }
+
+        function addGoalRow(goalName, tableRef, activeDays = []) {
+            const table = tableRef || document.getElementById('trackerTable');
+            
+            let insertIndex = table.rows.length;
+            const addBtnRow = document.getElementById('add-btn-row');
+            if(addBtnRow) insertIndex = addBtnRow.rowIndex;
+            else if(document.getElementById('score-row')) insertIndex = document.getElementById('score-row').rowIndex;
+            
+            let row = table.insertRow(insertIndex);
+            row.className = 'goal-row';
+
+            // Ziel Name
+            let cellName = row.insertCell();
+            cellName.className = 'sticky-col';
+            cellName.innerHTML = `
+                <div class="goal-wrapper">
+                    <input type="text" class="goal-input" value="${goalName}" placeholder="Neues Ziel...">
+                    <button class="btn-delete-goal" onclick="deleteGoalRow(this)" title="Ziel löschen">&times;</button>
+                </div>
+            `;
+            
+            // Event Listener für Textänderung -> Speichern
+            const inputField = cellName.querySelector('.goal-input');
+            inputField.addEventListener('input', () => saveDataForMonth());
+
+            // Checkboxen
+            for (let j = 1; j <= daysInCurrentMonth; j++) {
+                let cell = row.insertCell();
+                cell.className = 'check-cell';
+                cell.dataset.day = j;
+                
+                // Falls activeDays übergeben wurde, setze Status
+                if (activeDays.includes(j)) {
+                    cell.classList.add('active');
+                }
+
+                cell.innerHTML = '<div class="check-box"></div>';
+                
+                cell.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    isMouseDown = true;
+                    shouldActivate = !this.classList.contains('active');
+                    setCellState(this, shouldActivate);
+                });
+                cell.addEventListener('mouseenter', function() {
+                    if (isMouseDown) setCellState(this, shouldActivate);
+                });
+                cell.addEventListener('click', function() {
+                    if(window.matchMedia("(pointer: coarse)").matches) {
+                         setCellState(this, !this.classList.contains('active'));
+                    }
+                });
+            }
+
+            if(!tableRef) {
+                calculateScores(true); // Speichern bei neuer Zeile
+            }
+        }
+
+        function renderAddButtonRow(table) {
+            let row = table.insertRow();
+            row.id = 'add-btn-row';
+            let cell = row.insertCell();
+            cell.className = 'sticky-col add-row-cell';
+            cell.innerHTML = `<button class="btn-add-goal" onclick="addNewGoal()">+ Ziel hinzufügen</button>`;
+            let fillCell = row.insertCell();
+            fillCell.colSpan = daysInCurrentMonth;
+            fillCell.style.background = "var(--bg)";
+            fillCell.style.borderBottom = "none";
+        }
+
+        function renderScoreRow(table) {
+            let row = table.insertRow();
+            row.id = 'score-row';
+            let cellLabel = row.insertCell();
+            cellLabel.className = 'sticky-col score-label';
+            cellLabel.innerText = "SCORE";
+            for (let i = 1; i <= daysInCurrentMonth; i++) {
+                let cell = row.insertCell();
+                cell.className = 'score-cell';
+                cell.id = `score-${i}`;
+                cell.innerText = "0%";
+            }
+        }
+
+        function addNewGoal() {
+            addGoalRow("", null, []);
+        }
+
+        function deleteGoalRow(btn) {
+            if(confirm("Ziel wirklich löschen?")) {
+                const row = btn.closest('tr');
+                row.remove();
+                calculateScores(true); // Speichern nach Löschen
+            }
+        }
+
+        function setCellState(cell, active) {
+            if (active) cell.classList.add('active');
+            else cell.classList.remove('active');
+            calculateScores(true); // Speichern bei Check-Änderung
+        }
+
+        function calculateScores(shouldSave = true) {
+            const totalGoals = document.querySelectorAll('.goal-row').length;
+            let dailyData = [];
+
+            for (let day = 1; day <= daysInCurrentMonth; day++) {
+                let checkedCount = document.querySelectorAll(`.check-cell[data-day="${day}"].active`).length;
+                let percent = 0;
+                if (totalGoals > 0) percent = checkedCount / totalGoals;
+                
+                const scoreCell = document.getElementById(`score-${day}`);
+                if (scoreCell) scoreCell.innerText = Math.round(percent * 100) + "%";
+                dailyData.push(percent);
+            }
+            updateChartData(dailyData);
+            
+            if(shouldSave) saveDataForMonth();
+        }
+
+        function initChart(totalDays) {
+            const ctx = document.getElementById('productivityChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            let labels = Array.from({length: totalDays}, (_, i) => i + 1);
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Flow',
+                        data: new Array(totalDays).fill(0),
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: {
+                            beginAtZero: true, max: 1,
+                            grid: { color: getComputedStyle(document.body).getPropertyValue('--chart-grid') },
+                            ticks: { callback: v => (v * 100) + "%", font: {family: 'Inter'} }
+                        },
+                        x: { grid: { display: false }, ticks: { font: {family: 'Inter'} } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+            updateChartColors();
+        }
+
+        function updateChartData(newData) {
+            if (myChart) {
+                myChart.data.labels = Array.from({length: daysInCurrentMonth}, (_, i) => i + 1);
+                myChart.data.datasets[0].data = newData;
+                myChart.update();
+            }
+        }
+
+        function updateChartColors() {
+            if (!myChart) return;
+            const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+            const rgb = getComputedStyle(document.documentElement).getPropertyValue('--primary-rgb').trim();
+            const gridColor = getComputedStyle(document.body).getPropertyValue('--chart-grid').trim();
+
+            const ctx = document.getElementById('productivityChart').getContext('2d');
+            let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, `rgba(${rgb}, 0.5)`);
+            gradient.addColorStop(1, `rgba(${rgb}, 0.0)`);
+
+            myChart.data.datasets[0].borderColor = primary;
+            myChart.data.datasets[0].backgroundColor = gradient;
+            myChart.data.datasets[0].pointHoverBackgroundColor = primary;
+            myChart.options.scales.y.grid.color = gridColor;
+            myChart.update();
+        }
+    </script>
+</body>
+</html>
