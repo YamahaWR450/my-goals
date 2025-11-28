@@ -607,6 +607,20 @@
 
             goalInput.addEventListener('blur', () => {
                 const newValue = goalInput.value;
+                
+                // Restore 'delete on empty' functionality
+                const row = goalInput.closest('.goal-row');
+                if(row) {
+                    const activeCheckboxes = row.querySelectorAll('.check-cell.active').length;
+                    if (newValue.trim() === '' && activeCheckboxes === 0) {
+                        if (document.querySelectorAll('.goal-row').length > 1) {
+                            row.remove();
+                            calculateScores(true); // Recalculate scores and save
+                            return; // Exit early
+                        }
+                    }
+                }
+
                 goalText.textContent = newValue;
                 goalInput.value = newValue; 
 
