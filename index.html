@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MY GOALS - Auto Save</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
     
     <style>
         :root {
@@ -112,9 +112,8 @@
         }
 
         h1 { 
-            font-family: 'Braggadocio', 'Arial Black', sans-serif;
-            font-size: 32px; margin: 0; letter-spacing: 1px;
-            text-transform: uppercase;
+            font-family: 'Pacifico', cursive;
+            font-size: 38px; margin: 0;
             text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
             color: var(--text-main);
         }
@@ -172,6 +171,11 @@
             position: sticky; left: 0; z-index: 20; background-color: var(--card-bg);
             width: var(--col-width); min-width: var(--col-width); max-width: var(--col-width);
             border-right: 2px solid var(--border);
+            pointer-events: none; /* Lässt Klicks durch leere Bereiche der Zelle hindurch */
+        }
+
+        .sticky-col > * {
+            pointer-events: auto; /* Macht den Inhalt der Zelle wieder klickbar */
         }
 
         .week-cell {
@@ -322,7 +326,7 @@
 
     <div class="app-container">
         <header>
-            <h1>MY GOALS</h1>
+            <h1>My Goals</h1>
             
             <div class="toolbar">
                 <div class="date-group">
