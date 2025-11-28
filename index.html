@@ -171,20 +171,6 @@
             position: sticky; left: 0; z-index: 20; background-color: var(--card-bg);
             width: var(--col-width); min-width: var(--col-width); max-width: var(--col-width);
             border-right: 2px solid var(--border);
-            pointer-events: none;
-        }
-
-        .sticky-col-content {
-            pointer-events: auto;
-            height: 100%;
-            display: flex;
-            align-items: center;
-        }
-
-        @media (max-width: 768px) { /* Restrict clickable area on mobile */
-            .sticky-col-content {
-                width: 75%;
-            }
         }
 
         .week-cell {
@@ -226,6 +212,18 @@
             flex-grow: 1;
             border: none; font-family: 'Inter'; font-size: 13px;
             color: var(--text-main); padding: 10px 0; outline: none; background: transparent;
+        }
+
+        .goal-text {
+            flex-grow: 1;
+            padding: 10px 0;
+            cursor: pointer;
+            min-height: 38px; /* Match input height */
+            display: inline-block;
+        }
+        
+        .is-hidden {
+            display: none;
         }
 
         .btn-delete-goal {
@@ -504,7 +502,6 @@
             let rowWeek = table.insertRow();
             let spacer = rowWeek.insertCell();
             spacer.className = "sticky-col"; 
-            spacer.innerHTML = `<div class="sticky-col-content"></div>`;
             
             let currentDay = 1;
             let weekCount = 1;
@@ -524,7 +521,7 @@
             let rowDays = table.insertRow();
             let cellH = rowDays.insertCell();
             cellH.className = 'sticky-col header-col-goals';
-            cellH.innerHTML = `<div class="sticky-col-content">GOALS</div>`;
+            cellH.innerText = "GOALS";
             
             const today = new Date();
             const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
@@ -584,33 +581,49 @@
             let row = table.insertRow(insertIndex);
             row.className = 'goal-row';
 
-            // Ziel Name
+            // Ziel Name (In-Place-Edit)
             let cellName = row.insertCell();
             cellName.className = 'sticky-col';
             cellName.innerHTML = `
-                <div class="sticky-col-content">
-                    <div class="goal-wrapper">
-                        <input type="text" class="goal-input" value="${goalName}" placeholder="Neues Ziel...">
-                        <button class="btn-delete-goal" onclick="deleteGoalRow(this)" title="Ziel löschen">&times;</button>
-                    </div>
+                <div class="goal-wrapper">
+                    <span class="goal-text">${goalName}</span>
+                    <input type="text" class="goal-input is-hidden" value="${goalName}" />
+                    <button class="btn-delete-goal" onclick="deleteGoalRow(this)" title="Ziel löschen">&times;</button>
                 </div>
             `;
             
-            // Event Listener für Textänderung -> Speichern
-            const inputField = cellName.querySelector('.goal-input');
-            inputField.addEventListener('input', () => saveDataForMonth());
-            inputField.addEventListener('blur', function() {
-                // Wenn Feld leer ist UND keine Tage markiert sind, Zeile löschen
-                const row = this.closest('.goal-row');
-                const activeCheckboxes = row.querySelectorAll('.check-cell.active').length;
-                if (this.value.trim() === '' && activeCheckboxes === 0) {
-                    // Nur löschen, wenn es mehr als eine Zeile gibt
-                    if (document.querySelectorAll('.goal-row').length > 1) {
-                        row.remove();
-                        calculateScores(true); // Scores neu berechnen und speichern
-                    }
+            // --- In-Place-Edit Logic ---
+            const goalWrapper = cellName.querySelector('.goal-wrapper');
+            const goalText = cellName.querySelector('.goal-text');
+            const goalInput = cellName.querySelector('.goal-input');
+
+            goalText.addEventListener('click', (e) => {
+                e.stopPropagation(); // Verhindert, dass der Wrapper-Klick auch auslöst
+                goalText.classList.add('is-hidden');
+                goalInput.classList.remove('is-hidden');
+                goalInput.focus();
+                goalInput.select();
+            });
+
+            goalInput.addEventListener('blur', () => {
+                const newValue = goalInput.value;
+                goalText.textContent = newValue;
+                goalInput.value = newValue; 
+
+                goalText.classList.remove('is-hidden');
+                goalInput.classList.add('is-hidden');
+                saveDataForMonth();
+            });
+
+            goalInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    goalInput.blur();
+                } else if (e.key === 'Escape') {
+                    goalInput.value = goalText.textContent; // Reset to original text
+                    goalInput.blur();
                 }
             });
+
 
             // Checkboxen
             const today = new Date();
@@ -676,7 +689,7 @@
             row.id = 'score-row';
             let cellLabel = row.insertCell();
             cellLabel.className = 'sticky-col score-label';
-            cellLabel.innerHTML = `<div class="sticky-col-content"><button class="btn-add-goal-score" onclick="addNewGoal()">+ Add Goal</button></div>`;
+            cellLabel.innerHTML = `<button class="btn-add-goal-score" onclick="addNewGoal()">+ Add Goal</button>`;
 
             const today = new Date();
             const dateInput = document.getElementById('dateInput').value.split('.');
