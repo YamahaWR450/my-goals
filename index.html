@@ -90,7 +90,7 @@
         }
 
         @media (max-width: 480px) {
-            :root { --col-width: 120px; } /* Make goal column narrower on small phones */
+            :root { --col-width: 100px; } /* Make goal column narrower on small phones */
             .goal-input { font-size: 12px; }
             .check-cell { min-width: 32px; }
             .day-num { font-size: 12px; }
@@ -182,6 +182,20 @@
 
         .day-name { font-size: 9px; color: var(--text-muted); text-align: center; padding-top: 6px; }
         .day-num { font-size: 13px; font-weight: 700; color: var(--text-main); text-align: center; padding-bottom: 6px; }
+
+        .day-header.current-day {
+            background-color: var(--week-bg);
+            border-radius: 6px 6px 0 0;
+        }
+
+        .check-cell.current-day {
+            background-color: var(--week-bg);
+        }
+
+        .score-cell.current-day {
+            background-color: var(--week-bg);
+            border-radius: 0 0 6px 6px;
+        }
 
         .header-col-goals {
             padding: 0 10px; font-size: 11px; font-weight: 700; color: var(--text-muted);
@@ -451,9 +465,15 @@
         }
 
         function generateTracker() {
-            const input = document.getElementById('dateInput').value;
+            let input = document.getElementById('dateInput').value;
             const parts = input.split('.');
             if (parts.length !== 2) { alert("Format: MM.YYYY"); return; }
+
+            if (parts[1].length === 2) {
+                parts[1] = "20" + parts[1];
+                input = parts.join('.');
+                document.getElementById('dateInput').value = input;
+            }
 
             const month = parseInt(parts[0]) - 1;
             const year = parseInt(parts[1]);
@@ -491,6 +511,9 @@
             let cellH = rowDays.insertCell();
             cellH.className = 'sticky-col header-col-goals';
             cellH.innerText = "GOALS";
+            
+            const today = new Date();
+            const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
 
             for (let i = 1; i <= daysInCurrentMonth; i++) {
                 let d = new Date(year, month, i);
@@ -498,6 +521,10 @@
                 let cell = rowDays.insertCell();
                 cell.innerHTML = `<div class="day-name">${dayName}</div><div class="day-num">${i}</div>`;
                 cell.style.textAlign = "center";
+                cell.className = 'day-header';
+                if (isCurrentMonth && i === today.getDate()) {
+                    cell.classList.add('current-day');
+                }
             }
             rowDays.insertCell().className = 'delete-header-cell'; // Leere Zelle für Löschen-Spalte
 
@@ -521,6 +548,17 @@
             // Score initial berechnen nach dem Aufbau
             calculateScores(false); // false = kein erneutes Speichern beim Laden
             initChart(daysInCurrentMonth);
+
+            // Scrolle automatisch nach rechts, wenn Datum nach dem 15. des aktuellen Monats ist
+            if (isCurrentMonth && today.getDate() > 15) {
+                // Verzögerung, um sicherzustellen, dass das Layout vollständig berechnet ist
+                setTimeout(() => {
+                    const tableWrapper = document.querySelector('.table-wrapper');
+                    if (tableWrapper) {
+                        tableWrapper.scrollLeft = tableWrapper.scrollWidth;
+                    }
+                }, 0);
+            }
         }
 
         function addGoalRow(goalName, tableRef, activeDays = []) {
@@ -559,10 +597,20 @@
             });
 
             // Checkboxen
+            const today = new Date();
+            const dateInput = document.getElementById('dateInput').value.split('.');
+            const currentYear = parseInt(dateInput[1]);
+            const currentMonth = parseInt(dateInput[0]) - 1;
+            const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === currentMonth;
+
             for (let j = 1; j <= daysInCurrentMonth; j++) {
                 let cell = row.insertCell();
                 cell.className = 'check-cell';
                 cell.dataset.day = j;
+
+                if (isCurrentMonth && j === today.getDate()) {
+                    cell.classList.add('current-day');
+                }
                 
                 // Falls activeDays übergeben wurde, setze Status
                 if (activeDays.includes(j)) {
@@ -571,25 +619,28 @@
 
                 cell.innerHTML = '<div class="check-box"></div>';
                 
-                // Use click for primary interaction on all devices
-                cell.addEventListener('click', function() {
-                    setCellState(this, !this.classList.contains('active'));
-                });
+                // Korrigierte Event-Handler für Klick- und Zieh-Funktionalität
+                const isMouseDevice = window.matchMedia("(pointer: fine)").matches;
 
-                // Add drag-to-select functionality ONLY for mouse devices
-                if (window.matchMedia("(pointer: fine)").matches) {
+                if (isMouseDevice) {
+                    // Für Maus: Mousedown startet die Aktion (sowohl für Klick als auch für Ziehen)
                     cell.addEventListener('mousedown', function(e) {
-                        e.preventDefault();
+                        e.preventDefault(); // Verhindert Textauswahl
                         isMouseDown = true;
                         shouldActivate = !this.classList.contains('active');
                         setCellState(this, shouldActivate);
                     });
+
+                    // Mouseenter wendet den Status während des Ziehens an
                     cell.addEventListener('mouseenter', function() {
-                        if (isMouseDown) setCellState(this, shouldActivate);
+                        if (isMouseDown) {
+                            setCellState(this, shouldActivate);
+                        }
                     });
-                    // Override the click event for mouse to avoid double-toggling
-                    cell.addEventListener('click', function(e) {
-                        e.preventDefault(); // Prevent the general click from firing
+                } else {
+                    // Für Touch-Geräte: Ein einfacher "Klick" bzw. "Tap" schaltet den Status um
+                    cell.addEventListener('click', function() {
+                        setCellState(this, !this.classList.contains('active'));
                     });
                 }
             }
@@ -610,11 +661,21 @@
             let cellLabel = row.insertCell();
             cellLabel.className = 'sticky-col score-label';
             cellLabel.innerHTML = `<button class="btn-add-goal-score" onclick="addNewGoal()">+ Add Goal</button>`;
+
+            const today = new Date();
+            const dateInput = document.getElementById('dateInput').value.split('.');
+            const currentYear = parseInt(dateInput[1]);
+            const currentMonth = parseInt(dateInput[0]) - 1;
+            const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === currentMonth;
+
             for (let i = 1; i <= daysInCurrentMonth; i++) {
                 let cell = row.insertCell();
                 cell.className = 'score-cell';
                 cell.id = `score-${i}`;
                 cell.innerText = "0%";
+                if (isCurrentMonth && i === today.getDate()) {
+                    cell.classList.add('current-day');
+                }
             }
             row.insertCell(); // Leere Zelle für Löschen-Spalte
         }
