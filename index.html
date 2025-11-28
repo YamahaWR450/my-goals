@@ -90,7 +90,7 @@
         }
 
         @media (max-width: 480px) {
-            :root { --col-width: 30px; } /* Make goal column narrower on small phones */
+            :root { --col-width: 100px; } /* Make goal column narrower on small phones */
             .goal-input { font-size: 12px; }
             .check-cell { min-width: 32px; }
             .day-num { font-size: 12px; }
@@ -171,6 +171,20 @@
             position: sticky; left: 0; z-index: 20; background-color: var(--card-bg);
             width: var(--col-width); min-width: var(--col-width); max-width: var(--col-width);
             border-right: 2px solid var(--border);
+            pointer-events: none;
+        }
+
+        .sticky-col-content {
+            pointer-events: auto;
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) { /* Restrict clickable area on mobile */
+            .sticky-col-content {
+                width: 75%;
+            }
         }
 
         .week-cell {
@@ -490,6 +504,7 @@
             let rowWeek = table.insertRow();
             let spacer = rowWeek.insertCell();
             spacer.className = "sticky-col"; 
+            spacer.innerHTML = `<div class="sticky-col-content"></div>`;
             
             let currentDay = 1;
             let weekCount = 1;
@@ -509,7 +524,7 @@
             let rowDays = table.insertRow();
             let cellH = rowDays.insertCell();
             cellH.className = 'sticky-col header-col-goals';
-            cellH.innerText = "GOALS";
+            cellH.innerHTML = `<div class="sticky-col-content">GOALS</div>`;
             
             const today = new Date();
             const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
@@ -573,9 +588,11 @@
             let cellName = row.insertCell();
             cellName.className = 'sticky-col';
             cellName.innerHTML = `
-                <div class="goal-wrapper">
-                    <input type="text" class="goal-input" value="${goalName}" placeholder="Neues Ziel...">
-                    <button class="btn-delete-goal" onclick="deleteGoalRow(this)" title="Ziel löschen">&times;</button>
+                <div class="sticky-col-content">
+                    <div class="goal-wrapper">
+                        <input type="text" class="goal-input" value="${goalName}" placeholder="Neues Ziel...">
+                        <button class="btn-delete-goal" onclick="deleteGoalRow(this)" title="Ziel löschen">&times;</button>
+                    </div>
                 </div>
             `;
             
@@ -659,7 +676,7 @@
             row.id = 'score-row';
             let cellLabel = row.insertCell();
             cellLabel.className = 'sticky-col score-label';
-            cellLabel.innerHTML = `<button class="btn-add-goal-score" onclick="addNewGoal()">+ Add Goal</button>`;
+            cellLabel.innerHTML = `<div class="sticky-col-content"><button class="btn-add-goal-score" onclick="addNewGoal()">+ Add Goal</button></div>`;
 
             const today = new Date();
             const dateInput = document.getElementById('dateInput').value.split('.');
