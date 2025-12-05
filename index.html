@@ -794,7 +794,28 @@
                         },
                         x: { grid: { display: false }, ticks: { font: {family: 'Inter'} } }
                     },
-                    plugins: { legend: { display: false } }
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            displayColors: false,
+                            padding: 6,
+                            font: {
+                                size: 16
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    const emojis = ['😭','😢','😣','😖','☹️','😐','🙂','😊','😀','😎'];
+                                    const value = context.parsed.y;
+                                    if (value === null) {
+                                        return '';
+                                    }
+                                    const index = Math.round(value * 9);
+                                    const emoji = emojis[index];
+                                    return 'Flow: ' + emoji;
+                                }
+                            }
+                        }
+                    }
                 }
             });
             updateChartColors();
