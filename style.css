@@ -1,0 +1,88 @@
+/* --- Language Selector (Morphing) --- */
+.language-selector-wrapper {
+    position: relative;
+    width: 36px;
+    height: 36px;
+}
+
+#languageSelector {
+    /* This element is now positioned absolutely within the wrapper */
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* It inherits from .icon-btn: background, border, cursor */
+    /* Overrides for animation */
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    padding: 0;
+    transition: all 0.3s ease-in-out;
+    z-index: 100;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#languageSelector.open {
+    height: 100px; /* Adjusted for 0px margin between flags */
+    width: 36px; /* Width should not change */
+    border-radius: 18px; /* Pill shape */
+    background-color: var(--bg); /* Changed to match closed state */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    top: -2px; /* Reverted to previous alignment */
+}
+
+/* Main flag, visible by default */
+#languageSelector .main-flag {
+    transition: opacity 0.1s ease-in-out;
+    font-size: 20px;
+    position: absolute; /* Keep it centered */
+}
+
+/* Hide main flag when open */
+#languageSelector.open .main-flag {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Dropdown container inside the main button */
+#languageDropdown {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 4px;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s 0.1s ease-in-out; /* Delay opacity transition */
+    pointer-events: none;
+}
+
+#languageSelector.open #languageDropdown {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.lang-option {
+    cursor: pointer;
+    font-size: 20px;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+    margin-bottom: 0px; /* Reduced spacing to 0 */
+}
+
+.lang-option:last-child {
+    margin-bottom: 0;
+}
+
+.lang-option:hover {
+    background-color: var(--hover-bg);
+}
+
+.lang-option.active {
+    /* background-color: rgba(var(--primary-rgb), 0.2); -- Removed pastel background */
+}
