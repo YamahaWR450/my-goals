@@ -274,7 +274,8 @@
 
         .date-group {
             display: flex; align-items: center; background: var(--bg);
-            padding: 5px 10px; border-radius: 9999px; border: 1px solid var(--border);
+            padding: 5px; /* All sides padding is 5px */
+            border-radius: 9999px; border: 1px solid var(--border);
         }
         .date-group input {
             border: none; background: transparent; font-family: 'Inter'; font-weight: 700;
@@ -283,6 +284,7 @@
         .btn-update {
             background-color: var(--primary); color: white; border: none; padding: 6px 10px;
             border-radius: 9999px; font-size: 12px; font-weight: 600; cursor: pointer;
+            margin-left: 5px; /* Added to shift it right */
         }
         .btn-secondary {
             background: var(--bg);
@@ -493,6 +495,13 @@
         }
         .footer .quote { font-style: italic; font-weight: 400; }
         .footer .author { font-weight: 700; color: var(--text-main); letter-spacing: 0.5px; }
+
+        .goal-row.disabled {
+            opacity: 0.5;
+        }
+        .goal-row.disabled .goal-text {
+            text-decoration: line-through;
+        }
     </style>
 </head>
 <body>
@@ -628,11 +637,12 @@
             
             rows.forEach(row => {
                 const name = row.querySelector('.goal-input').value;
+                const isDisabled = row.classList.contains('disabled');
                 const activeDays = [];
                 row.querySelectorAll('.check-cell.active').forEach(cell => {
                     activeDays.push(parseInt(cell.dataset.day));
                 });
-                goalsData.push({ name: name, activeDays: activeDays });
+                goalsData.push({ name: name, activeDays: activeDays, disabled: isDisabled });
             });
 
             const storageKey = `goals_data_${dateKey}`;
@@ -740,7 +750,7 @@
             if (savedData && savedData.length > 0) {
                 // Wenn Daten existieren, erstelle Zeilen daraus
                 savedData.forEach(goalObj => {
-                    addGoalRow(goalObj.name, table, goalObj.activeDays);
+                    addGoalRow(goalObj.name, table, goalObj.activeDays, goalObj.disabled);
                 });
             } else {
                 // Wenn keine Daten, erstelle 5 leere Zeilen
@@ -753,7 +763,7 @@
             
             // Score initial berechnen nach dem Aufbau
             calculateScores(false); // false = kein erneutes Speichern beim Laden
-            initChart(daysInCurrentMonth);
+            initChart(daysInCurrentMonth, isCurrentMonth);
 
             // Scrolle automatisch nach rechts, wenn Datum nach dem 15. des aktuellen Monats ist
             if (isCurrentMonth && today.getDate() > 15) {
@@ -767,7 +777,7 @@
             }
         }
 
-        function addGoalRow(goalName, tableRef, activeDays = []) {
+        function addGoalRow(goalName, tableRef, activeDays = [], isDisabled = false) {
             const table = tableRef || document.getElementById('trackerTable');
             
             let insertIndex = table.rows.length;
@@ -775,6 +785,9 @@
             
             let row = table.insertRow(insertIndex);
             row.className = 'goal-row';
+            if (isDisabled) {
+                row.classList.add('disabled');
+            }
 
             // Ziel Name (In-Place-Edit)
             let cellName = row.insertCell();
@@ -791,6 +804,15 @@
             const goalWrapper = cellName.querySelector('.goal-wrapper');
             const goalText = cellName.querySelector('.goal-text');
             const goalInput = cellName.querySelector('.goal-input');
+
+            // DOUBLE CLICK to disable/enable row
+            goalWrapper.addEventListener('dblclick', function() {
+                const row = this.closest('.goal-row');
+                if (row) {
+                    row.classList.toggle('disabled');
+                    calculateScores(true); // Recalculate and save
+                }
+            });
 
             goalText.addEventListener('click', (e) => {
                 e.stopPropagation(); // Verhindert, dass der Wrapper-Klick auch auslöst
@@ -937,11 +959,13 @@
         }
 
         function calculateScores(shouldSave = true) {
-            const totalGoals = document.querySelectorAll('.goal-row').length;
+            // Only count rows that are NOT disabled
+            const totalGoals = document.querySelectorAll('.goal-row:not(.disabled)').length;
             let dailyData = [];
 
             for (let day = 1; day <= daysInCurrentMonth; day++) {
-                let checkedCount = document.querySelectorAll(`.check-cell[data-day="${day}"].active`).length;
+                // Only count active check-cells within rows that are NOT disabled
+                let checkedCount = document.querySelectorAll(`.goal-row:not(.disabled) .check-cell[data-day="${day}"].active`).length;
                 let percent = 0;
                 if (totalGoals > 0) percent = checkedCount / totalGoals;
                 
@@ -954,11 +978,38 @@
             if(shouldSave) saveDataForMonth();
         }
 
-        function initChart(totalDays) {
+        function initChart(totalDays, isCurrentMonth) {
             const ctx = document.getElementById('productivityChart').getContext('2d');
             if (myChart) myChart.destroy();
 
             let labels = Array.from({length: totalDays}, (_, i) => i + 1);
+
+            const todayLinePlugin = {
+                id: 'todayLine',
+                afterDraw: (chart) => {
+                    if (isCurrentMonth) {
+                        const ctx = chart.ctx;
+                        const today = new Date().getDate();
+                        const point = chart.getDatasetMeta(0).data[today - 1];
+
+                        if (point) {
+                            const x = point.x;
+                            const topY = chart.chartArea.top;
+                            const bottomY = chart.chartArea.bottom;
+
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.setLineDash([5, 5]);
+                            ctx.moveTo(x, topY);
+                            ctx.lineTo(x, bottomY);
+                            ctx.lineWidth = 1;
+                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--week-bg').trim();
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }
+                }
+            };
 
             myChart = new Chart(ctx, {
                 type: 'line',
@@ -980,9 +1031,20 @@
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         y: {
-                            beginAtZero: true, max: 1,
-                            grid: { color: getComputedStyle(document.body).getPropertyValue('--chart-grid') },
-                            ticks: { callback: v => (v * 100) + "%", font: {family: 'Inter'} }
+                            beginAtZero: true,
+                            max: 1,
+                            border: {
+                                display: false
+                            },
+                            grid: {
+                                color: getComputedStyle(document.body).getPropertyValue('--chart-grid'),
+                                drawBorder: false,
+                                tickColor: 'transparent'
+                            },
+                            ticks: {
+                                callback: v => (v * 100) + "%",
+                                font: { family: 'Inter' }
+                            }
                         },
                         x: { grid: { display: false }, ticks: { font: {family: 'Inter'} } }
                     },
@@ -1008,7 +1070,8 @@
                             }
                         }
                     }
-                }
+                },
+                plugins: [todayLinePlugin]
             });
             updateChartColors();
         }
