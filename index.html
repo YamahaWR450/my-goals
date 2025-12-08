@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MY GOALS - Auto Save</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
     
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -32,16 +33,19 @@
 
         // Firebase Auth State Listener
         firebase.auth().onAuthStateChanged(user => {
+            const authStatus = document.getElementById('authStatus');
             if (user) {
                 console.log("User logged in:", user.displayName);
-                document.getElementById('authStatus').innerText = `Logged in as: ${user.displayName}`;
+                authStatus.setAttribute('data-translate', 'logged-in-as');
+                authStatus.innerText = `${translations[currentLanguage]['logged-in-as']}: ${user.displayName}`;
                 document.getElementById('loginButton').style.display = 'none';
                 document.getElementById('logoutButton').style.display = 'inline-block';
                 document.getElementById('syncButtons').style.display = 'flex';
                 loadGoalsFromFirebase(); // Load data when user logs in
             } else {
                 console.log("User logged out");
-                document.getElementById('authStatus').innerText = 'Not logged in';
+                authStatus.setAttribute('data-translate', 'not-logged-in');
+                authStatus.innerText = translations[currentLanguage]['not-logged-in'];
                 document.getElementById('loginButton').style.display = 'inline-block';
                 document.getElementById('logoutButton').style.display = 'none';
                 document.getElementById('syncButtons').style.display = 'none';
@@ -51,20 +55,10 @@
         function signInWithGoogle() {
             auth.signInWithPopup(provider)
                 .then((result) => {
-                    // This gives you a Google Access Token. You can use it to access the Google API.
-                    const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-                    const token = credential.accessToken;
-                    // The signed-in user info.
                     const user = result.user;
                     console.log("Google Sign-In successful!", user);
                 }).catch((error) => {
-                    // Handle Errors here.
-                    const errorCode = error.code;
                     const errorMessage = error.message;
-                    // The email of the user's account used.
-                    const email = error.email;
-                    // The firebase.auth.AuthCredential type that was used.
-                    const credential = firebase.auth.GoogleAuthProvider.credentialFromError(error);
                     console.error("Google Sign-In failed:", errorMessage);
                 });
         }
@@ -72,17 +66,17 @@
         function signOutFirebase() {
             auth.signOut().then(() => {
                 console.log("Signed out successfully.");
-                alert("Erfolgreich abgemeldet.");
+                alert(translations[currentLanguage]['sign-out-success']);
             }).catch((error) => {
                 console.error("Sign out error:", error);
-                alert("Fehler beim Abmelden.");
+                alert(translations[currentLanguage]['sign-out-error']);
             });
         }
 
         async function saveGoalsToFirebase() {
             const user = auth.currentUser;
             if (!user) {
-                alert("Bitte melden Sie sich an, um Daten zu speichern.");
+                alert(translations[currentLanguage]['save-data-prompt']);
                 return;
             }
 
@@ -90,7 +84,7 @@
             const localData = localStorage.getItem(`goals_data_${dateKey}`);
             
             if (!localData) {
-                alert("Keine lokalen Daten zum Speichern vorhanden.");
+                alert(translations[currentLanguage]['no-local-data']);
                 return;
             }
 
@@ -99,18 +93,17 @@
                     data: localData,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                alert("Daten erfolgreich in Firebase gespeichert!");
+                alert(translations[currentLanguage]['data-saved-success']);
                 console.log("Data saved to Firebase for:", dateKey);
             } catch (error) {
                 console.error("Error saving data to Firebase:", error);
-                alert("Fehler beim Speichern der Daten in Firebase.");
+                alert(translations[currentLanguage]['error-saving-data']);
             }
         }
 
         async function loadGoalsFromFirebase() {
             const user = auth.currentUser;
             if (!user) {
-                // This case is handled by the auth state listener, so it shouldn't typically be hit here.
                 return; 
             }
 
@@ -124,10 +117,8 @@
                     const firebaseTimestamp = doc.data().timestamp ? doc.data().timestamp.toDate() : null;
                     const localData = localStorage.getItem(`goals_data_${dateKey}`);
                     
-                    // Simple conflict resolution: Firebase data overrides local data
-                    // A more sophisticated approach would involve merging or asking the user.
                     if (localData && firebaseTimestamp) {
-                        const confirmLoad = confirm("Firebase-Daten für diesen Monat gefunden. Möchten Sie die lokalen Daten überschreiben? (Abbrechen, um nur lokale Daten zu behalten)");
+                        const confirmLoad = confirm(translations[currentLanguage]['confirm-overwrite']);
                         if (!confirmLoad) {
                             console.log("User chose to keep local data.");
                             return;
@@ -135,24 +126,22 @@
                     }
 
                     localStorage.setItem(`goals_data_${dateKey}`, firebaseData);
-                    alert("Daten erfolgreich aus Firebase geladen und angewendet!");
+                    alert(translations[currentLanguage]['data-loaded-success']);
                     console.log("Data loaded from Firebase for:", dateKey);
-                    generateTracker(); // Re-render the tracker with Firebase data
+                    generateTracker();
                 } else {
                     console.log("No Firebase data found for this month. Checking local storage.");
-                    // If no Firebase data, ensure local data is loaded if available, otherwise start fresh.
                     if (localStorage.getItem(`goals_data_${dateKey}`)) {
-                        generateTracker(); // Load existing local data
+                        generateTracker();
                         console.log("Local data found and loaded.");
                     } else {
-                        // If neither Firebase nor local data, generate a fresh tracker (which will then be saved locally).
                         generateTracker();
                         console.log("No local or Firebase data, generating fresh tracker.");
                     }
                 }
             } catch (error) {
                 console.error("Error loading data from Firebase:", error);
-                alert("Fehler beim Laden der Daten aus Firebase.");
+                alert(translations[currentLanguage]['error-loading-data']);
             }
         }
     </script>
@@ -508,12 +497,12 @@
 
     <div class="app-container">
         <header>
-            <h1>My Goals</h1>
+            <h1 data-translate="my-goals">My Goals</h1>
             
             <div class="toolbar">
                 <div class="date-group">
                     <input type="text" id="dateInput">
-                    <button class="btn-update" onclick="generateTracker()">Go</button>
+                    <button class="btn-update" onclick="generateTracker()" data-translate="go">Go</button>
                 </div>
 
                 <div class="icon-btn">
@@ -526,6 +515,19 @@
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                     </svg>
                 </div>
+
+                <!-- Language Selector -->
+                <div class="language-selector-wrapper">
+                    <div id="languageSelector" class="icon-btn">
+                        <span class="main-flag">🇬🇧</span>
+                        <div id="languageDropdown">
+                            <span class="lang-option" data-lang="en">🇬🇧</span>
+                            <span class="lang-option" data-lang="de">🇩🇪</span>
+                            <span class="lang-option" data-lang="ch">🇨🇭</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Firebase Auth Buttons -->
                 <div class="icon-btn" id="loginButton" onclick="signInWithGoogle()">
                     <img src="G.jpg" alt="Google Logo" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
@@ -537,10 +539,10 @@
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
-                <span id="authStatus" style="font-size: 14px; color: var(--text-muted);">Not logged in</span>
+                <span id="authStatus" data-translate="not-logged-in" style="font-size: 14px; color: var(--text-muted);">Not logged in</span>
                 <div id="syncButtons" style="display: none; gap: 10px;">
-                    <button class="btn-secondary" onclick="saveGoalsToFirebase()">Save to Cloud</button>
-                    <button class="btn-secondary" onclick="loadGoalsFromFirebase()">Load from Cloud</button>
+                    <button class="btn-secondary" onclick="saveGoalsToFirebase()" data-translate="save-to-cloud">Save to Cloud</button>
+                    <button class="btn-secondary" onclick="loadGoalsFromFirebase()" data-translate="load-from-cloud">Load from Cloud</button>
                 </div>
             </div>
         </header>
@@ -554,12 +556,13 @@
         </div>
 
         <div class="footer">
-            <span class="quote">"Do something today that you'll be proud of tomorrow."</span>
+            <span class="quote" data-translate="quote">"Do something today that you'll be proud of tomorrow."</span>
             <span class="separator">—</span>
             <span class="author">by Silvan 2025</span>
         </div>
     </div>
 
+    <script src="script.js"></script>
     <script>
         let myChart = null;
         let isMouseDown = false;
@@ -573,7 +576,6 @@
         window.onload = function() {
             loadGlobalSettings();
             
-            // Setze Datum auf heute, wenn nicht anders gespeichert oder wenn leer
             const now = new Date();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const year = now.getFullYear();
@@ -585,14 +587,13 @@
 
             dateInput.addEventListener('keydown', function(event) {
                 if (event.key === 'Enter') {
-                    event.preventDefault(); // Verhindert Standard-Formular-Verhalten
+                    event.preventDefault();
                     generateTracker();
                 }
             });
 
             generateTracker();
 
-            // Horizontal scroll with mouse wheel on the calendar table
             const tableWrapper = document.querySelector('.table-wrapper');
             if (tableWrapper) {
                 tableWrapper.addEventListener('wheel', (event) => {
@@ -604,10 +605,10 @@
             }
         };
 
-        /* --- SPEICHER & LADE LOGIK --- */
         function loadGlobalSettings() {
             const savedColor = localStorage.getItem('app_primary_color');
             const savedTheme = localStorage.getItem('app_theme');
+            const savedLang = localStorage.getItem('app_language');
 
             if (savedColor) {
                 document.getElementById('colorPicker').value = savedColor;
@@ -616,6 +617,9 @@
             if (savedTheme === 'dark') {
                 document.body.classList.add('dark-mode');
                 changeColor(document.getElementById('colorPicker').value, false);
+            }
+            if(savedLang) {
+                setLanguage(savedLang);
             }
         }
 
@@ -629,7 +633,6 @@
 
         function saveDataForMonth() {
             const dateKey = document.getElementById('dateInput').value;
-            // Speicher letztes Datum für UX
             localStorage.setItem('last_active_date', dateKey);
 
             const goalsData = [];
@@ -654,7 +657,6 @@
             const json = localStorage.getItem(storageKey);
             return json ? JSON.parse(json) : null;
         }
-        /* --------------------------- */
 
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
@@ -672,7 +674,7 @@
             const isDark = document.body.classList.contains('dark-mode');
             const opacity = isDark ? 0.3 : 0.15;
             document.documentElement.style.setProperty('--week-bg', `rgba(${r}, ${g}, ${b}, ${opacity})`);
-            const weekTextColorAdjustment = isDark ? -20 : 40; // Lighten by 20% in dark mode, darken by 40% in light mode.
+            const weekTextColorAdjustment = isDark ? -20 : 40;
             document.documentElement.style.setProperty('--week-text-color', darkenColor(hex, weekTextColorAdjustment));
 
             document.getElementById('colorPreview').style.backgroundColor = hex;
@@ -683,7 +685,10 @@
         function generateTracker() {
             let input = document.getElementById('dateInput').value;
             const parts = input.split('.');
-            if (parts.length !== 2) { alert("Format: MM.YYYY"); return; }
+            if (parts.length !== 2) { 
+                alert(translations[currentLanguage]['invalid-date']); 
+                return; 
+            }
 
             if (parts[1].length === 2) {
                 parts[1] = "20" + parts[1];
@@ -694,16 +699,17 @@
             const month = parseInt(parts[0]) - 1;
             const year = parseInt(parts[1]);
             const startDate = new Date(year, month, 1);
-            if (isNaN(startDate.getTime())) { alert("Ungültiges Datum"); return; }
+            if (isNaN(startDate.getTime())) { 
+                alert(translations[currentLanguage]['invalid-date']); 
+                return; 
+            }
 
-            // Save date immediately when valid
             localStorage.setItem('last_active_date', input);
 
             daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
             const table = document.getElementById('trackerTable');
             table.innerHTML = '';
 
-            // 1. Wochen
             let rowWeek = table.insertRow();
             let spacer = rowWeek.insertCell();
             spacer.className = "sticky-col"; 
@@ -717,15 +723,15 @@
                 let cell = rowWeek.insertCell();
                 cell.colSpan = span;
                 cell.className = 'week-cell';
-                cell.innerText = "WEEK " + weekCount;
+                cell.innerHTML = `<span data-translate="week">WEEK</span> ${weekCount}`;
                 currentDay += 7;
                 weekCount++;
             }
 
-            // 2. Tage
             let rowDays = table.insertRow();
             let cellH = rowDays.insertCell();
             cellH.className = 'sticky-col header-col-goals';
+            cellH.setAttribute('data-translate', 'goals');
             cellH.innerText = "GOALS";
             
             const today = new Date();
@@ -742,32 +748,27 @@
                     cell.classList.add('current-day');
                 }
             }
-            rowDays.insertCell().className = 'delete-header-cell'; // Leere Zelle für Löschen-Spalte
+            rowDays.insertCell().className = 'delete-header-cell';
 
-            // LADE DATEN
             const savedData = loadDataForMonth(input);
 
             if (savedData && savedData.length > 0) {
-                // Wenn Daten existieren, erstelle Zeilen daraus
                 savedData.forEach(goalObj => {
                     addGoalRow(goalObj.name, table, goalObj.activeDays, goalObj.disabled);
                 });
             } else {
-                // Wenn keine Daten, erstelle 5 leere Zeilen
                 for (let i = 1; i <= 5; i++) {
-                    addGoalRow(`Goal ${i}`, table, []);
+                    addGoalRow(`${translations[currentLanguage]['goals'] || 'Goal'} ${i}`, table, []);
                 }
             }
 
             renderScoreRow(table);
             
-            // Score initial berechnen nach dem Aufbau
-            calculateScores(false); // false = kein erneutes Speichern beim Laden
             initChart(daysInCurrentMonth, isCurrentMonth);
+            calculateScores(false);
+            setLanguage(currentLanguage); // re-apply translations
 
-            // Scrolle automatisch nach rechts, wenn Datum nach dem 15. des aktuellen Monats ist
             if (isCurrentMonth && today.getDate() > 15) {
-                // Verzögerung, um sicherzustellen, dass das Layout vollständig berechnet ist
                 setTimeout(() => {
                     const tableWrapper = document.querySelector('.table-wrapper');
                     if (tableWrapper) {
@@ -789,7 +790,6 @@
                 row.classList.add('disabled');
             }
 
-            // Ziel Name (In-Place-Edit)
             let cellName = row.insertCell();
             cellName.className = 'sticky-col';
             cellName.innerHTML = `
@@ -800,22 +800,20 @@
                 </div>
             `;
             
-            // --- In-Place-Edit Logic ---
             const goalWrapper = cellName.querySelector('.goal-wrapper');
             const goalText = cellName.querySelector('.goal-text');
             const goalInput = cellName.querySelector('.goal-input');
 
-            // DOUBLE CLICK to disable/enable row
             goalWrapper.addEventListener('dblclick', function() {
                 const row = this.closest('.goal-row');
                 if (row) {
                     row.classList.toggle('disabled');
-                    calculateScores(true); // Recalculate and save
+                    calculateScores(true);
                 }
             });
 
             goalText.addEventListener('click', (e) => {
-                e.stopPropagation(); // Verhindert, dass der Wrapper-Klick auch auslöst
+                e.stopPropagation();
                 goalText.classList.add('is-hidden');
                 goalInput.classList.remove('is-hidden');
                 goalInput.focus();
@@ -824,16 +822,14 @@
 
             goalInput.addEventListener('blur', () => {
                 const newValue = goalInput.value;
-                
-                // Restore 'delete on empty' functionality
                 const row = goalInput.closest('.goal-row');
                 if(row) {
                     const activeCheckboxes = row.querySelectorAll('.check-cell.active').length;
                     if (newValue.trim() === '' && activeCheckboxes === 0) {
                         if (document.querySelectorAll('.goal-row').length > 1) {
                             row.remove();
-                            calculateScores(true); // Recalculate scores and save
-                            return; // Exit early
+                            calculateScores(true);
+                            return;
                         }
                     }
                 }
@@ -850,13 +846,11 @@
                 if (e.key === 'Enter') {
                     goalInput.blur();
                 } else if (e.key === 'Escape') {
-                    goalInput.value = goalText.textContent; // Reset to original text
+                    goalInput.value = goalText.textContent;
                     goalInput.blur();
                 }
             });
 
-
-            // Checkboxen
             const today = new Date();
             const dateInput = document.getElementById('dateInput').value.split('.');
             const currentYear = parseInt(dateInput[1]);
@@ -872,46 +866,40 @@
                     cell.classList.add('current-day');
                 }
                 
-                // Falls activeDays übergeben wurde, setze Status
                 if (activeDays.includes(j)) {
                     cell.classList.add('active');
                 }
 
                 cell.innerHTML = '<div class="check-box"></div>';
                 
-                // Korrigierte Event-Handler für Klick- und Zieh-Funktionalität
                 const isMouseDevice = window.matchMedia("(pointer: fine)").matches;
 
                 if (isMouseDevice) {
-                    // Für Maus: Mousedown startet die Aktion (sowohl für Klick als auch für Ziehen)
                     cell.addEventListener('mousedown', function(e) {
-                        e.preventDefault(); // Verhindert Textauswahl
+                        e.preventDefault();
                         isMouseDown = true;
                         shouldActivate = !this.classList.contains('active');
                         setCellState(this, shouldActivate);
                     });
 
-                    // Mouseenter wendet den Status während des Ziehens an
                     cell.addEventListener('mouseenter', function() {
                         if (isMouseDown) {
                             setCellState(this, shouldActivate);
                         }
                     });
                 } else {
-                    // Für Touch-Geräte: Ein einfacher "Klick" bzw. "Tap" schaltet den Status um
                     cell.addEventListener('click', function() {
                         setCellState(this, !this.classList.contains('active'));
                     });
                 }
             }
 
-            // Neue Zelle für den mobilen Löschen-Button
             let deleteCell = row.insertCell();
             deleteCell.className = 'delete-cell';
             deleteCell.innerHTML = `<button class="btn-delete-goal-mobile" onclick="deleteGoalRow(this)" title="Ziel löschen">&times;</button>`;
 
             if(!tableRef) {
-                calculateScores(true); // Speichern bei neuer Zeile
+                calculateScores(true);
             }
         }
 
@@ -920,7 +908,7 @@
             row.id = 'score-row';
             let cellLabel = row.insertCell();
             cellLabel.className = 'sticky-col score-label';
-            cellLabel.innerHTML = `<button class="btn-add-goal-score" onclick="addNewGoal()">+ Add Goal</button>`;
+            cellLabel.innerHTML = `<button class="btn-add-goal-score" data-translate="add-goal" onclick="addNewGoal()">+ Add Goal</button>`;
 
             const today = new Date();
             const dateInput = document.getElementById('dateInput').value.split('.');
@@ -937,7 +925,7 @@
                     cell.classList.add('current-day');
                 }
             }
-            row.insertCell(); // Leere Zelle für Löschen-Spalte
+            row.insertCell();
         }
 
         function addNewGoal() {
@@ -945,26 +933,24 @@
         }
 
         function deleteGoalRow(btn) {
-            if(confirm("Ziel wirklich löschen?")) {
+            if(confirm(translations[currentLanguage]['delete-goal-confirm'])) {
                 const row = btn.closest('tr');
                 row.remove();
-                calculateScores(true); // Speichern nach Löschen
+                calculateScores(true);
             }
         }
 
         function setCellState(cell, active) {
             if (active) cell.classList.add('active');
             else cell.classList.remove('active');
-            calculateScores(true); // Speichern bei Check-Änderung
+            calculateScores(true);
         }
 
         function calculateScores(shouldSave = true) {
-            // Only count rows that are NOT disabled
             const totalGoals = document.querySelectorAll('.goal-row:not(.disabled)').length;
             let dailyData = [];
 
             for (let day = 1; day <= daysInCurrentMonth; day++) {
-                // Only count active check-cells within rows that are NOT disabled
                 let checkedCount = document.querySelectorAll(`.goal-row:not(.disabled) .check-cell[data-day="${day}"].active`).length;
                 let percent = 0;
                 if (totalGoals > 0) percent = checkedCount / totalGoals;
