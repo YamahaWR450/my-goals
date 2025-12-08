@@ -274,7 +274,7 @@
 
         .date-group {
             display: flex; align-items: center; background: var(--bg);
-            padding: 5px 10px; border-radius: 10px; border: 1px solid var(--border);
+            padding: 5px 10px; border-radius: 9999px; border: 1px solid var(--border);
         }
         .date-group input {
             border: none; background: transparent; font-family: 'Inter'; font-weight: 700;
@@ -282,7 +282,22 @@
         }
         .btn-update {
             background-color: var(--primary); color: white; border: none; padding: 6px 10px;
-            border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+            border-radius: 9999px; font-size: 12px; font-weight: 600; cursor: pointer;
+        }
+        .btn-secondary {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 9999px;
+            color: var(--text-muted);
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-secondary:hover {
+            background: var(--hover-bg);
+            color: var(--text-main);
         }
 
         .icon-btn {
@@ -507,7 +522,7 @@
                     <img src="G.jpg" alt="Google Logo" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
                 </div>
                 <div class="icon-btn" id="logoutButton" onclick="signOutFirebase()" style="display: none;">
-                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
                         <path fill="currentColor" d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.59L17 17L22 12L17 7ZM2 2H12A2 2 0 0 1 14 4V8H12V4H2V20H12V16H14V20A2 2 0 0 1 12 22H2A2 2 0 0 1 0 20V4A2 2 0 0 1 2 2Z"/>
                     </svg>
                 </div>
@@ -515,8 +530,8 @@
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
                 <span id="authStatus" style="font-size: 14px; color: var(--text-muted);">Not logged in</span>
                 <div id="syncButtons" style="display: none; gap: 10px;">
-                    <button class="btn-update" onclick="saveGoalsToFirebase()">Save to Cloud</button>
-                    <button class="btn-update" onclick="loadGoalsFromFirebase()">Load from Cloud</button>
+                    <button class="btn-secondary" onclick="saveGoalsToFirebase()">Save to Cloud</button>
+                    <button class="btn-secondary" onclick="loadGoalsFromFirebase()">Load from Cloud</button>
                 </div>
             </div>
         </header>
