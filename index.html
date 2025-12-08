@@ -522,7 +522,7 @@
                     <img src="G.jpg" alt="Google Logo" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
                 </div>
                 <div class="icon-btn" id="logoutButton" onclick="signOutFirebase()" style="display: none;">
-                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(calc(-50% + 1px), -50%);">
                         <path fill="currentColor" d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.59L17 17L22 12L17 7ZM2 2H12A2 2 0 0 1 14 4V8H12V4H2V20H12V16H14V20A2 2 0 0 1 12 22H2A2 2 0 0 1 0 20V4A2 2 0 0 1 2 2Z"/>
                     </svg>
                 </div>
@@ -582,6 +582,17 @@
             });
 
             generateTracker();
+
+            // Horizontal scroll with mouse wheel on the calendar table
+            const tableWrapper = document.querySelector('.table-wrapper');
+            if (tableWrapper) {
+                tableWrapper.addEventListener('wheel', (event) => {
+                    if (tableWrapper.scrollWidth > tableWrapper.clientWidth) {
+                        event.preventDefault();
+                        tableWrapper.scrollLeft += event.deltaY;
+                    }
+                });
+            }
         };
 
         /* --- SPEICHER & LADE LOGIK --- */
