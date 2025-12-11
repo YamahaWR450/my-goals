@@ -501,7 +501,7 @@
             
             <div class="toolbar">
                 <div class="date-group">
-                    <input type="text" id="dateInput">
+                    <input type="tel" id="dateInput" inputmode="numeric" pattern="[0-9.]*">
                     <button class="btn-update" onclick="generateTracker()" data-translate="go">Go</button>
                 </div>
 
@@ -567,7 +567,6 @@
         let myChart = null;
         let isMouseDown = false;
         let shouldActivate = true;
-        const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         let daysInCurrentMonth = 0;
 
         document.addEventListener('mousedown', () => isMouseDown = true);
@@ -586,10 +585,34 @@
             dateInput.value = savedLastDate || defaultDate;
 
             dateInput.addEventListener('keydown', function(event) {
+                // Allow numbers, dot, and specific control keys
+                if (!((event.key >= '0' && event.key <= '9') ||
+                      event.key === '.' ||
+                      event.key === 'Enter' ||
+                      event.key === 'Tab' ||
+                      event.key === 'Backspace' ||
+                      event.key === 'Delete' ||
+                      event.key === 'ArrowLeft' ||
+                      event.key === 'ArrowRight' ||
+                      event.key === 'Home' ||
+                      event.key === 'End')) {
+                    event.preventDefault();
+                }
                 if (event.key === 'Enter') {
                     event.preventDefault();
                     generateTracker();
                 }
+            });
+
+            dateInput.addEventListener('paste', function(event) {
+                event.preventDefault();
+                const pasteData = event.clipboardData.getData('text');
+                const filteredData = pasteData.replace(/[^0-9.]/g, ''); // Keep only numbers and dots
+                const input = event.target;
+                const start = input.selectionStart;
+                const end = input.selectionEnd;
+                input.value = input.value.substring(0, start) + filteredData + input.value.substring(end);
+                input.selectionStart = input.selectionEnd = start + filteredData.length;
             });
 
             generateTracker();
@@ -672,7 +695,7 @@
             document.documentElement.style.setProperty('--primary-rgb', `${r}, ${g}, ${b}`);
             
             const isDark = document.body.classList.contains('dark-mode');
-            const opacity = isDark ? 0.3 : 0.15;
+            const opacity = isDark ? 0.3 : 0.4;
             document.documentElement.style.setProperty('--week-bg', `rgba(${r}, ${g}, ${b}, ${opacity})`);
             const weekTextColorAdjustment = isDark ? -20 : 40;
             document.documentElement.style.setProperty('--week-text-color', darkenColor(hex, weekTextColorAdjustment));
@@ -696,7 +719,12 @@
                 document.getElementById('dateInput').value = input;
             }
 
-            const month = parseInt(parts[0]) - 1;
+            const monthRaw = parseInt(parts[0]);
+            if (monthRaw < 1 || monthRaw > 12) {
+                alert(translations[currentLanguage]['invalid-month']);
+                return;
+            }
+            const month = monthRaw - 1; // month is 0-indexed here
             const year = parseInt(parts[1]);
             const startDate = new Date(year, month, 1);
             if (isNaN(startDate.getTime())) { 
@@ -739,7 +767,7 @@
 
             for (let i = 1; i <= daysInCurrentMonth; i++) {
                 let d = new Date(year, month, i);
-                let dayName = weekDays[d.getDay()];
+                let dayName = translations[currentLanguage].weekdays[d.getDay()];
                 let cell = rowDays.insertCell();
                 cell.innerHTML = `<div class="day-name">${dayName}</div><div class="day-num">${i}</div>`;
                 cell.style.textAlign = "center";
