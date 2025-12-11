@@ -37,18 +37,16 @@
             if (user) {
                 console.log("User logged in:", user.displayName);
                 authStatus.setAttribute('data-translate', 'logged-in-as');
-                authStatus.innerText = `${translations[currentLanguage]['logged-in-as']}: ${user.displayName}`;
+                authStatus.innerText = `${translations[currentLanguage]['logged-in-as'] || 'Logged in as'}: ${user.displayName} (Auto-Sync On)`;
                 document.getElementById('loginButton').style.display = 'none';
                 document.getElementById('logoutButton').style.display = 'inline-block';
-                document.getElementById('syncButtons').style.display = 'flex';
                 loadGoalsFromFirebase(); // Load data when user logs in
             } else {
                 console.log("User logged out");
                 authStatus.setAttribute('data-translate', 'not-logged-in');
-                authStatus.innerText = translations[currentLanguage]['not-logged-in'];
+                authStatus.innerText = translations[currentLanguage]['not-logged-in'] || 'Not logged in';
                 document.getElementById('loginButton').style.display = 'inline-block';
                 document.getElementById('logoutButton').style.display = 'none';
-                document.getElementById('syncButtons').style.display = 'none';
             }
         });
         
@@ -73,33 +71,43 @@
             });
         }
 
-        async function saveGoalsToFirebase() {
+        function debounce(func, delay) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), delay);
+            };
+        }
+
+        async function saveGoalsToFirebase(dataToSave) {
             const user = auth.currentUser;
             if (!user) {
-                alert(translations[currentLanguage]['save-data-prompt']);
+                // Can't save if user is not logged in.
+                return;
+            }
+            if (!dataToSave) {
+                // Don't save if there's no data.
                 return;
             }
 
             const dateKey = document.getElementById('dateInput').value;
-            const localData = localStorage.getItem(`goals_data_${dateKey}`);
-            
-            if (!localData) {
-                alert(translations[currentLanguage]['no-local-data']);
-                return;
-            }
 
             try {
                 await db.collection('users').doc(user.uid).collection('goals').doc(dateKey).set({
-                    data: localData,
+                    data: dataToSave,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                alert(translations[currentLanguage]['data-saved-success']);
                 console.log("Data saved to Firebase for:", dateKey);
             } catch (error) {
                 console.error("Error saving data to Firebase:", error);
+                // Optionally, alert the user only on error for background saves.
                 alert(translations[currentLanguage]['error-saving-data']);
             }
         }
+
+        const debouncedSaveToFirebase = debounce(saveGoalsToFirebase, 1500);
+
 
         async function loadGoalsFromFirebase() {
             const user = auth.currentUser;
@@ -114,30 +122,14 @@
 
                 if (doc.exists) {
                     const firebaseData = doc.data().data;
-                    const firebaseTimestamp = doc.data().timestamp ? doc.data().timestamp.toDate() : null;
-                    const localData = localStorage.getItem(`goals_data_${dateKey}`);
-                    
-                    if (localData && firebaseTimestamp) {
-                        const confirmLoad = confirm(translations[currentLanguage]['confirm-overwrite']);
-                        if (!confirmLoad) {
-                            console.log("User chose to keep local data.");
-                            return;
-                        }
-                    }
-
+                    // Directly overwrite local data with Firebase data.
                     localStorage.setItem(`goals_data_${dateKey}`, firebaseData);
-                    alert(translations[currentLanguage]['data-loaded-success']);
                     console.log("Data loaded from Firebase for:", dateKey);
-                    generateTracker();
+                    generateTracker(); // Regenerate the tracker with the new data
                 } else {
-                    console.log("No Firebase data found for this month. Checking local storage.");
-                    if (localStorage.getItem(`goals_data_${dateKey}`)) {
-                        generateTracker();
-                        console.log("Local data found and loaded.");
-                    } else {
-                        generateTracker();
-                        console.log("No local or Firebase data, generating fresh tracker.");
-                    }
+                    // If no data on firebase, just load whatever is local (or generate fresh)
+                    console.log("No Firebase data found for this month. Using local data.");
+                    generateTracker();
                 }
             } catch (error) {
                 console.error("Error loading data from Firebase:", error);
@@ -546,10 +538,6 @@
             </div>
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
                 <span id="authStatus" data-translate="not-logged-in" style="font-size: 14px; color: var(--text-muted);">Not logged in</span>
-                <div id="syncButtons" style="display: none; gap: 10px;">
-                    <button class="btn-secondary" onclick="saveGoalsToFirebase()" data-translate="save-to-cloud">Save to Cloud</button>
-                    <button class="btn-secondary" onclick="loadGoalsFromFirebase()" data-translate="load-from-cloud">Load from Cloud</button>
-                </div>
             </div>
         </header>
 
@@ -728,7 +716,11 @@
             });
 
             const storageKey = `goals_data_${dateKey}`;
-            localStorage.setItem(storageKey, JSON.stringify(goalsData));
+            const dataString = JSON.stringify(goalsData);
+            localStorage.setItem(storageKey, dataString);
+
+            // Automatically save to the cloud with a debounce
+            debouncedSaveToFirebase(dataString);
         }
 
         function loadDataForMonth(dateKey) {
