@@ -516,6 +516,12 @@
                     </svg>
                 </div>
 
+                <div class="icon-btn" onclick="toggleChartType()">
+                    <svg id="chartTypeIcon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6,16.5V10H4.5V16.5H6M10.5,16.5V4.5H9V16.5H10.5M15,16.5V7.5H13.5V16.5H15M19.5,16.5V13.5H18V16.5H19.5M21,2H3A1,1 0 0,0 2,3V18A1,1 0 0,0 3,19H21A1,1 0 0,0 22,18V3A1,1 0 0,0 21,2Z"></path>
+                    </svg>
+                </div>
+
                 <!-- Language Selector -->
                 <div class="language-selector-wrapper">
                     <div id="languageSelector" class="icon-btn">
@@ -568,6 +574,8 @@
         let isMouseDown = false;
         let shouldActivate = true;
         let daysInCurrentMonth = 0;
+        let currentChartType = 'line';
+        let isCurrentMonthForChart = false;
 
         document.addEventListener('mousedown', () => isMouseDown = true);
         document.addEventListener('mouseup', () => isMouseDown = false);
@@ -604,6 +612,47 @@
                 }
             });
 
+            dateInput.addEventListener('input', function(event) {
+                let value = dateInput.value.replace(/[^0-9]/g, ''); // Allow only numbers for this logic
+                let originalLength = value.length;
+                let cursorPos = dateInput.selectionStart;
+
+                if (value.length > 2) {
+                    value = value.substring(0, 2) + '.' + value.substring(2, 6);
+                }
+
+                dateInput.value = value;
+                
+                // Restore cursor position
+                if (cursorPos === 2 && originalLength === 2 && value.length === 3) {
+                    dateInput.setSelectionRange(3, 3);
+                } else {
+                    dateInput.setSelectionRange(cursorPos, cursorPos);
+                }
+            });
+
+            dateInput.addEventListener('input', function(event) {
+                let value = dateInput.value.replace(/[^0-9]/g, ''); // Allow only numbers for this logic
+                let originalLength = value.length;
+                let cursorPos = dateInput.selectionStart;
+
+                if (value.length > 2) {
+                    value = value.substring(0, 2) + '.' + value.substring(2, 6);
+                }
+
+                dateInput.value = value;
+                
+                // Restore cursor position, especially after auto-adding the dot
+                if (cursorPos === 2 && originalLength === 2 && value.length === 3) {
+                    dateInput.setSelectionRange(3, 3);
+                } else if (value.length > originalLength) { // A dot was added
+                    dateInput.setSelectionRange(cursorPos + 1, cursorPos + 1);
+                }
+                else {
+                    dateInput.setSelectionRange(cursorPos, cursorPos);
+                }
+            });
+
             dateInput.addEventListener('paste', function(event) {
                 event.preventDefault();
                 const pasteData = event.clipboardData.getData('text');
@@ -632,6 +681,7 @@
             const savedColor = localStorage.getItem('app_primary_color');
             const savedTheme = localStorage.getItem('app_theme');
             const savedLang = localStorage.getItem('app_language');
+            const savedChartType = localStorage.getItem('app_chart_type');
 
             if (savedColor) {
                 document.getElementById('colorPicker').value = savedColor;
@@ -644,6 +694,10 @@
             if(savedLang) {
                 setLanguage(savedLang);
             }
+            if(savedChartType) {
+                currentChartType = savedChartType;
+            }
+            updateChartIcon();
         }
 
         function saveGlobalSettings() {
@@ -652,6 +706,8 @@
             
             const isDark = document.body.classList.contains('dark-mode');
             localStorage.setItem('app_theme', isDark ? 'dark' : 'light');
+
+            localStorage.setItem('app_chart_type', currentChartType);
         }
 
         function saveDataForMonth() {
@@ -685,6 +741,31 @@
             document.body.classList.toggle('dark-mode');
             saveGlobalSettings();
             changeColor(document.getElementById('colorPicker').value, false);
+        }
+
+        function toggleChartType() {
+            currentChartType = (currentChartType === 'line') ? 'bar' : 'line';
+            saveGlobalSettings();
+            updateChartIcon();
+            // Re-render chart with existing data without re-calculating everything
+            initChart(daysInCurrentMonth, isCurrentMonthForChart);
+            calculateScores(false); // This will call updateChartData
+        }
+
+        function updateChartIcon() {
+            const icon = document.getElementById('chartTypeIcon');
+            if (!icon) return;
+            const lineIconPath = "M3.5 18.5L9.5 12.5L13.5 16.5L22 6.92L20.59 5.5L13.5 13.5L9.5 9.5L2 17L3.5 18.5Z";
+            const barIconPath = "M2 20V8H6V20H2M10 20V4H14V20H10M18 20V12H22V20H18Z";
+
+            // The icon shows the chart type you WILL switch TO.
+            if (currentChartType === 'line') {
+                // Currently showing line chart, so button should show bar icon
+                icon.innerHTML = `<path d="${barIconPath}" fill-rule="evenodd"></path>`;
+            } else {
+                // Currently showing bar chart, so button should show line icon
+                icon.innerHTML = `<path d="${lineIconPath}" fill-rule="evenodd"></path>`;
+            }
         }
 
         function changeColor(hex, save = true) {
@@ -764,6 +845,7 @@
             
             const today = new Date();
             const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+            isCurrentMonthForChart = isCurrentMonth; // Update global var
 
             for (let i = 1; i <= daysInCurrentMonth; i++) {
                 let d = new Date(year, month, i);
@@ -1004,40 +1086,44 @@
                     if (isCurrentMonth) {
                         const ctx = chart.ctx;
                         const today = new Date().getDate();
-                        const point = chart.getDatasetMeta(0).data[today - 1];
+                        const meta = chart.getDatasetMeta(0);
+                        if (!meta.data[today - 1]) return;
+                        
+                        const point = meta.data[today - 1];
+                        
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.setLineDash([5, 5]);
 
-                        if (point) {
-                            const x = point.x;
-                            const topY = chart.chartArea.top;
-                            const bottomY = chart.chartArea.bottom;
-
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.setLineDash([5, 5]);
-                            ctx.moveTo(x, topY);
-                            ctx.lineTo(x, bottomY);
-                            ctx.lineWidth = 1;
-                            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--week-bg').trim();
-                            ctx.stroke();
-                            ctx.restore();
-                        }
+                        const x = point.x;
+                        const topY = chart.chartArea.top;
+                        const bottomY = chart.chartArea.bottom;
+                        ctx.moveTo(x, topY);
+                        ctx.lineTo(x, bottomY);
+                        
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--week-bg').trim();
+                        ctx.stroke();
+                        ctx.restore();
                     }
                 }
             };
+            
+            const datasetOptions = {
+                label: 'Flow',
+                data: new Array(totalDays).fill(0),
+                borderWidth: currentChartType === 'line' ? 3 : 1.5,
+                fill: currentChartType === 'line',
+                tension: 0.4,
+                pointRadius: currentChartType === 'line' ? 4 : 0,
+                pointHoverRadius: currentChartType === 'line' ? 6 : 0,
+            };
 
             myChart = new Chart(ctx, {
-                type: 'line',
+                type: currentChartType,
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: 'Flow',
-                        data: new Array(totalDays).fill(0),
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 4,
-                        pointHoverRadius: 6
-                    }]
+                    datasets: [datasetOptions]
                 },
                 options: {
                     responsive: true,
@@ -1130,11 +1216,12 @@
             let gradient = ctx.createLinearGradient(0, 0, 0, 400);
             gradient.addColorStop(0, `rgba(${rgb}, 0.5)`);
             gradient.addColorStop(1, `rgba(${rgb}, 0.0)`);
-
+            
             const darkerPrimary = darkenColor(primary, 40);
 
             myChart.data.datasets[0].borderColor = primary;
-            myChart.data.datasets[0].backgroundColor = gradient;
+            myChart.data.datasets[0].backgroundColor = gradient; // Use gradient for both
+            myChart.data.datasets[0].hoverBackgroundColor = `rgba(${rgb}, 0.8)`;
             myChart.data.datasets[0].pointHoverBackgroundColor = primary;
             myChart.data.datasets[0].pointBackgroundColor = darkerPrimary;
             myChart.data.datasets[0].pointBorderColor = primary;
