@@ -116,17 +116,24 @@
 
         // Firebase Auth State Listener
         firebase.auth().onAuthStateChanged(user => {
+            console.log("DEBUG: onAuthStateChanged triggered.");
             const authStatus = document.getElementById('authStatus');
 
             if (user) {
-                console.log("User logged in:", user.displayName);
+                console.log("DEBUG: User object found:", user);
+                console.log("DEBUG: user.displayName:", user.displayName);
+                console.log("DEBUG: currentLanguage is:", currentLanguage);
+                
+                const statusText = `${translations[currentLanguage]['logged-in-as']}: ${user.displayName} (Auto-Sync On)`;
+                console.log("DEBUG: Setting authStatus.innerText to:", statusText);
+
                 authStatus.setAttribute('data-translate', 'logged-in-as');
-                authStatus.innerText = `${translations[currentLanguage]['logged-in-as']}: ${user.displayName} (Auto-Sync On)`;
+                authStatus.innerText = statusText;
                 document.getElementById('loginButton').style.display = 'none';
                 document.getElementById('logoutButton').style.display = 'inline-block';
                 syncWithFirebase(); // Sync data with merge logic when user logs in
             } else {
-                console.log("User logged out");
+                console.log("DEBUG: User is logged out.");
                 authStatus.setAttribute('data-translate', 'not-logged-in');
                 authStatus.innerText = translations[currentLanguage]['not-logged-in'];
                 document.getElementById('loginButton').style.display = 'inline-block';
@@ -166,15 +173,16 @@
         }
 
         async function saveGoalsToFirebase(dataToSave) {
+            console.log("DEBUG: saveGoalsToFirebase triggered (debounced function executed).");
             const user = auth.currentUser;
             const authStatus = document.getElementById('authStatus');
 
             if (!user) {
-                // Can't save if user is not logged in.
+                console.log("DEBUG: Save to Firebase aborted, no user.");
                 return;
             }
             if (!dataToSave) {
-                // Don't save if there's no data.
+                console.log("DEBUG: Save to Firebase aborted, no data.");
                 return;
             }
 
@@ -188,7 +196,7 @@
                     data: dataToSave,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                console.log("Data saved to Firebase for:", dateKey);
+                console.log("DEBUG: Data saved to Firebase successfully.");
                 
                 // Show saved status, then revert
                 authStatus.innerText = `Gespeichert!`;
@@ -213,281 +221,95 @@
 
 
         async function syncWithFirebase() {
-
-
+                    console.log("DEBUG: Entering syncWithFirebase.");
                     const user = auth.currentUser;
-
-
                     const authStatus = document.getElementById('authStatus');
-
-
         
-
-
                     if (!user) {
-
-
+                        console.log("DEBUG: Sync aborted, no user.");
                         generateTracker();
-
-
                         return;
-
-
                     }
-
-
         
-
-
                     const dateKey = document.getElementById('dateInput').value;
-
-
                     const storageKey = `goals_data_${dateKey}`;
-
-
         
-
-
-                    // Show syncing status
-
-
                     authStatus.innerText = `Synchronisiere...`;
-
-
         
-
-
                     try {
-
-
                         // 1. Get local and Firebase data
-
-
                         const localDataString = localStorage.getItem(storageKey);
-
-
                         let localData = localDataString ? JSON.parse(localDataString) : [];
-
-
-                        localData = migrateDataToIds(localData); // Ensure local data has IDs
-
-
-        
-
+                        console.log(`DEBUG: Found local data for ${dateKey} (length: ${localData.length})`);
+                        localData = migrateDataToIds(localData);
 
                         const doc = await db.collection('users').doc(user.uid).collection('goals').doc(dateKey).get();
-
-
                         const firebaseDataString = doc.exists ? doc.data().data : null;
-
-
                         let firebaseData = firebaseDataString ? JSON.parse(firebaseDataString) : [];
-
-
-                        firebaseData = migrateDataToIds(firebaseData); // Ensure firebase data has IDs
-
-
+                        console.log(`DEBUG: Found Firebase data for ${dateKey} (length: ${firebaseData.length})`);
+                        firebaseData = migrateDataToIds(firebaseData);
         
-
-
                         let mergedData = [];
-
-
                         let needsSync = false;
-
-
         
-
-
                         // 2. Perform merge logic
-
-
                         if (localData.length === 0 && firebaseData.length > 0) {
-
-
-                            // Case 1: No local data, but Firebase data exists -> Use Firebase data
-
-
-                            console.log("No local data. Using data from cloud.");
-
-
+                            console.log("DEBUG: Merge Case 1: Using Firebase data.");
                             mergedData = firebaseData;
-
-
                             localStorage.setItem(storageKey, JSON.stringify(mergedData));
-
-
-                            needsSync = true; // Local storage was updated, so it counts as a sync
-
-
-                        } else if (localData.length > 0 && firebaseData.length === 0) {
-
-
-                            // Case 2: Local data exists, but no Firebase data -> Push local data to cloud
-
-
-                            console.log("No cloud data. Pushing local data to cloud.");
-
-
-                            mergedData = localData;
-
-
                             needsSync = true;
-
-
+                        } else if (localData.length > 0 && firebaseData.length === 0) {
+                            console.log("DEBUG: Merge Case 2: Pushing local data to cloud.");
+                            mergedData = localData;
+                            needsSync = true;
                         } else if (localData.length > 0 && firebaseData.length > 0) {
-
-
-                            // Case 3: Both exist, perform the merge
-
-
-                            console.log("Merging local and cloud data.");
-
-
+                            console.log("DEBUG: Merge Case 3: Merging local and cloud data.");
                             const mergedMap = new Map(firebaseData.map(g => [g.id, g]));
-
-
         
-
-
                             localData.forEach(localGoal => {
-
-
                                 const firebaseGoal = mergedMap.get(localGoal.id);
-
-
                                 if (firebaseGoal) {
-
-
-                                    // Goal exists in both, merge them
-
-
                                     const mergedGoal = {
-
-
-                                        ...localGoal, // Local changes (name, disabled) win
-
-
-                                        activeDays: [...new Set([...firebaseGoal.activeDays, ...localGoal.activeDays])] // Union of active days
-
-
+                                        ...localGoal,
+                                        activeDays: [...new Set([...firebaseGoal.activeDays, ...localGoal.activeDays])]
                                     };
-
-
                                     mergedMap.set(localGoal.id, mergedGoal);
-
-
                                 } else {
-
-
-                                    // Goal is only local, add it
-
-
                                     mergedMap.set(localGoal.id, localGoal);
-
-
                                 }
-
-
                             });
-
-
         
-
-
                             mergedData = Array.from(mergedMap.values());
-
-
                             
-
-
                             if (JSON.stringify(mergedData) !== localDataString || JSON.stringify(mergedData) !== firebaseDataString) {
-
-
                                  needsSync = true;
-
-
                             }
 
-
-        
-
-
                         } else {
-
-
-                            // Case 4: No data anywhere, use empty array.
-
-
+                            console.log("DEBUG: Merge Case 4: No data found anywhere.");
                             mergedData = [];
-
-
                         }
-
-
                         
-
-
                         // 3. Save merged data and re-render
-
-
                         if (needsSync) {
-
-
-                            console.log("Sync required. Updating storage and cloud.");
-
-
+                            console.log("DEBUG: Sync determined to be necessary.");
                             const mergedDataString = JSON.stringify(mergedData);
-
-
                             localStorage.setItem(storageKey, mergedDataString);
-
-
                             await saveGoalsToFirebase(mergedDataString);
-
-
                         } else {
-
-
-                            console.log("No sync needed. Data is up to date.");
-
-
+                            console.log("DEBUG: No sync necessary, data is already up to date.");
                         }
-
-
                         
-
-
                         generateTracker();
-
-
         
-
-
                         // Revert status after successful sync
-
-
                         authStatus.innerText = `${translations[currentLanguage]['logged-in-as'] || 'Logged in as'}: ${user.displayName} (Auto-Sync On)`;
-
-
         
-
-
                     } catch (error) {
-
-
                         console.error("Error syncing data with Firebase:", error);
-
-
                         authStatus.innerText = `Synchronisierungsfehler!`;
-
-
                         generateTracker(); 
-
-
                     }
-
-
                 }
     </script>
     
@@ -1052,6 +874,7 @@
         }
 
         function saveDataForMonth() {
+            console.log("DEBUG: saveDataForMonth triggered.");
             const dateKey = document.getElementById('dateInput').value;
             localStorage.setItem('last_active_date', dateKey);
 
@@ -1071,11 +894,17 @@
 
             const storageKey = `goals_data_${dateKey}`;
             const dataString = JSON.stringify(goalsData);
+            const oldDataString = localStorage.getItem(storageKey);
+            console.log("DEBUG: Generated dataString length:", dataString.length);
+            console.log("DEBUG: oldDataString length:", oldDataString ? oldDataString.length : 'null');
             
             // Only save and sync if data has actually changed
-            if (dataString !== localStorage.getItem(storageKey)) {
+            if (dataString !== oldDataString) {
+                console.log("DEBUG: Data has changed. Saving to localStorage and triggering cloud sync.");
                 localStorage.setItem(storageKey, dataString);
                 debouncedSaveToFirebase(dataString);
+            } else {
+                console.log("DEBUG: Data has NOT changed. Skipping save.");
             }
         }
 
