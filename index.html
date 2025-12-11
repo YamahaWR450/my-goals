@@ -34,17 +34,24 @@
         // Firebase Auth State Listener
         firebase.auth().onAuthStateChanged(user => {
             const authStatus = document.getElementById('authStatus');
+            
+            // Defensively access translations
+            const safeTranslations = window.translations || {};
+            const lang = window.currentLanguage || 'en';
+            const loginText = (safeTranslations[lang] && safeTranslations[lang]['logged-in-as']) ? safeTranslations[lang]['logged-in-as'] : 'Logged in as';
+            const logoutText = (safeTranslations[lang] && safeTranslations[lang]['not-logged-in']) ? safeTranslations[lang]['not-logged-in'] : 'Not logged in';
+
             if (user) {
                 console.log("User logged in:", user.displayName);
                 authStatus.setAttribute('data-translate', 'logged-in-as');
-                authStatus.innerText = `${translations[currentLanguage]['logged-in-as'] || 'Logged in as'}: ${user.displayName} (Auto-Sync On)`;
+                authStatus.innerText = `${loginText}: ${user.displayName} (Auto-Sync On)`;
                 document.getElementById('loginButton').style.display = 'none';
                 document.getElementById('logoutButton').style.display = 'inline-block';
                 syncWithFirebase(); // Sync data with merge logic when user logs in
             } else {
                 console.log("User logged out");
                 authStatus.setAttribute('data-translate', 'not-logged-in');
-                authStatus.innerText = translations[currentLanguage]['not-logged-in'] || 'Not logged in';
+                authStatus.innerText = logoutText;
                 document.getElementById('loginButton').style.display = 'inline-block';
                 document.getElementById('logoutButton').style.display = 'none';
                 generateTracker(); // When user logs out, just show local data.
@@ -409,14 +416,14 @@
     
     <style>
         :root {
-            --primary: #10b981; 
-            --primary-rgb: 16, 185, 129; 
+            --primary: #00AAFF; 
+            --primary-rgb: 0, 170, 255; 
             --bg: #f3f4f6;
             --card-bg: #ffffff;
             --text-main: #1f2937;
             --text-muted: #6b7280;
             --border: #e5e7eb;
-            --week-bg: rgba(16, 185, 129, 0.15); 
+            --week-bg: rgba(0, 170, 255, 0.15); 
             --week-text-color: #000; /* Placeholder, will be set by JS */
             --hover-bg: #f9fafb;
             --chart-grid: #f3f4f6;
@@ -768,7 +775,7 @@
 
                 <div class="icon-btn">
                     <div id="colorPreview"></div>
-                    <input type="color" id="colorPicker" value="#10b981" oninput="changeColor(this.value, true)">
+                    <input type="color" id="colorPicker" value="#00AAFF" oninput="changeColor(this.value, true)">
                 </div>
 
                 <div class="icon-btn" onclick="toggleTheme()">
@@ -842,15 +849,10 @@
         window.onload = function() {
             loadGlobalSettings();
             
-            const now = new Date();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const year = now.getFullYear();
-            const defaultDate = `${month}.${year}`;
-            
-            const savedLastDate = localStorage.getItem('last_active_date');
-            const dateInput = document.getElementById('dateInput');
-            dateInput.value = savedLastDate || defaultDate;
+            // The date input is now initialized defensively within generateTracker()
+            // to prevent race conditions on load.
 
+            const dateInput = document.getElementById('dateInput');
             dateInput.addEventListener('keydown', function(event) {
                 // Allow numbers, dot, and specific control keys
                 if (!((event.key >= '0' && event.key <= '9') ||
@@ -1059,7 +1061,38 @@ function migrateDataToIds(goalsData) {
         }
 
         function generateTracker() {
-            let input = document.getElementById('dateInput').value;
+            const dateInput = document.getElementById('dateInput');
+            let input = dateInput.value;
+
+            // If the input is empty on first run, set it to the current month.
+            // This prevents a race condition on page load.
+            if (!input) {
+                const now = new Date();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+                input = `${month}.${year}`;
+                dateInput.value = input;
+            }
+
+            const table = document.getElementById('trackerTable');
+            let currentGoalsData = [];
+
+            // Capture the current state from the DOM before clearing the table
+            if (table.rows.length > 0) {
+                const rows = document.querySelectorAll('.goal-row');
+                rows.forEach(row => {
+                    const id = row.dataset.goalId;
+                    if (!id) return; // Skip if row is not a valid goal row
+                    const name = row.querySelector('.goal-input').value;
+                    const isDisabled = row.classList.contains('disabled');
+                    const activeDays = [];
+                    row.querySelectorAll('.check-cell.active').forEach(cell => {
+                        activeDays.push(parseInt(cell.dataset.day));
+                    });
+                    currentGoalsData.push({ id: id, name: name, activeDays: activeDays, disabled: isDisabled });
+                });
+            }
+            
             const parts = input.split('.');
             if (parts.length !== 2) { 
                 alert(translations[currentLanguage]['invalid-date']); 
@@ -1088,8 +1121,7 @@ function migrateDataToIds(goalsData) {
             localStorage.setItem('last_active_date', input);
 
             daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
-            const table = document.getElementById('trackerTable');
-            table.innerHTML = '';
+            table.innerHTML = ''; // Clear the table now
 
             let rowWeek = table.insertRow();
             let spacer = rowWeek.insertCell();
@@ -1121,7 +1153,7 @@ function migrateDataToIds(goalsData) {
 
             for (let i = 1; i <= daysInCurrentMonth; i++) {
                 let d = new Date(year, month, i);
-                let dayName = translations[currentLanguage].weekdays[d.getDay()];
+                let dayName = (translations[currentLanguage] && translations[currentLanguage].weekdays) ? translations[currentLanguage].weekdays[d.getDay()] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
                 let cell = rowDays.insertCell();
                 cell.innerHTML = `<div class="day-name">${dayName}</div><div class="day-num">${i}</div>`;
                 cell.style.textAlign = "center";
@@ -1131,16 +1163,18 @@ function migrateDataToIds(goalsData) {
                 }
             }
             rowDays.insertCell().className = 'delete-header-cell';
+            
+            // Use the captured data first, otherwise load from storage.
+            const dataToRender = currentGoalsData.length > 0 ? currentGoalsData : loadDataForMonth(input);
 
-            const savedData = loadDataForMonth(input);
-
-            if (savedData && savedData.length > 0) {
-                savedData.forEach(goalObj => {
+            if (dataToRender && dataToRender.length > 0) {
+                dataToRender.forEach(goalObj => {
                     addGoalRow(goalObj, table);
                 });
             } else {
+                const goalText = (translations[currentLanguage] && translations[currentLanguage]['goals']) ? translations[currentLanguage]['goals'] : 'Goal';
                 for (let i = 1; i <= 5; i++) {
-                    addGoalRow({ name: `${translations[currentLanguage]['goals'] || 'Goal'} ${i}` }, table);
+                    addGoalRow({ name: `${goalText} ${i}` }, table);
                 }
             }
 
@@ -1148,8 +1182,7 @@ function migrateDataToIds(goalsData) {
             
             initChart(daysInCurrentMonth, isCurrentMonth);
             calculateScores(false);
-            setLanguage(currentLanguage); // re-apply translations
-
+            setLanguage(currentLanguage); // re-apply translations to static elements
             if (isCurrentMonth && today.getDate() > 15) {
                 setTimeout(() => {
                     const tableWrapper = document.querySelector('.table-wrapper');
