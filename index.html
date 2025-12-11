@@ -1028,6 +1028,32 @@ function migrateDataToIds(goalsData) {
                 } else if (e.key === 'Escape') {
                     goalInput.value = goalText.textContent;
                     goalInput.blur();
+                } else if (e.key === 'Tab') {
+                    e.preventDefault(); // Prevent default tab behavior
+                    
+                    const allRows = Array.from(document.querySelectorAll('.goal-row'));
+                    const currentRow = e.target.closest('.goal-row');
+                    const currentIndex = allRows.findIndex(row => row === currentRow);
+
+                    const nextIndex = e.shiftKey ? currentIndex - 1 : currentIndex + 1;
+
+                    if (nextIndex >= 0 && nextIndex < allRows.length) {
+                        const nextRow = allRows[nextIndex];
+                        const nextGoalText = nextRow.querySelector('.goal-text');
+                        if (nextGoalText) {
+                            nextGoalText.click(); // Simulate click to enter edit mode
+                        }
+                    } else if (!e.shiftKey && nextIndex >= allRows.length) {
+                        // Tabbing forward from the last input
+                        goalInput.blur();
+                        const addGoalButton = document.querySelector('.btn-add-goal-score');
+                        if (addGoalButton) {
+                            addGoalButton.focus();
+                        }
+                    } else {
+                        // Tabbing backward from the first input or other edge cases
+                        goalInput.blur();
+                    }
                 }
             });
 
