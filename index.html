@@ -40,13 +40,14 @@
                 authStatus.innerText = `${translations[currentLanguage]['logged-in-as'] || 'Logged in as'}: ${user.displayName} (Auto-Sync On)`;
                 document.getElementById('loginButton').style.display = 'none';
                 document.getElementById('logoutButton').style.display = 'inline-block';
-                loadGoalsFromFirebase(); // Load data when user logs in
+                syncWithFirebase(); // Sync data with merge logic when user logs in
             } else {
                 console.log("User logged out");
                 authStatus.setAttribute('data-translate', 'not-logged-in');
                 authStatus.innerText = translations[currentLanguage]['not-logged-in'] || 'Not logged in';
                 document.getElementById('loginButton').style.display = 'inline-block';
                 document.getElementById('logoutButton').style.display = 'none';
+                generateTracker(); // When user logs out, just show local data.
             }
         });
         
@@ -109,31 +110,88 @@
         const debouncedSaveToFirebase = debounce(saveGoalsToFirebase, 1500);
 
 
-        async function loadGoalsFromFirebase() {
+        async function syncWithFirebase() {
             const user = auth.currentUser;
             if (!user) {
-                return; 
+                // If user is not logged in, just generate the view from local data.
+                generateTracker();
+                return;
             }
 
             const dateKey = document.getElementById('dateInput').value;
+            const storageKey = `goals_data_${dateKey}`;
 
             try {
-                const doc = await db.collection('users').doc(user.uid).collection('goals').doc(dateKey).get();
+                // 1. Get local and Firebase data
+                const localDataString = localStorage.getItem(storageKey);
+                let localData = localDataString ? JSON.parse(localDataString) : [];
+                localData = migrateDataToIds(localData); // Ensure local data has IDs
 
-                if (doc.exists) {
-                    const firebaseData = doc.data().data;
-                    // Directly overwrite local data with Firebase data.
-                    localStorage.setItem(`goals_data_${dateKey}`, firebaseData);
-                    console.log("Data loaded from Firebase for:", dateKey);
-                    generateTracker(); // Regenerate the tracker with the new data
+                const doc = await db.collection('users').doc(user.uid).collection('goals').doc(dateKey).get();
+                const firebaseDataString = doc.exists ? doc.data().data : null;
+                let firebaseData = firebaseDataString ? JSON.parse(firebaseDataString) : [];
+                firebaseData = migrateDataToIds(firebaseData); // Ensure firebase data has IDs
+
+                let mergedData = [];
+                let needsSync = false;
+
+                // 2. Perform merge logic
+                if (localData.length === 0 && firebaseData.length > 0) {
+                    // Case 1: No local data, but Firebase data exists -> Use Firebase data
+                    console.log("No local data. Using data from cloud.");
+                    mergedData = firebaseData;
+                    localStorage.setItem(storageKey, JSON.stringify(mergedData));
+                } else if (localData.length > 0 && firebaseData.length === 0) {
+                    // Case 2: Local data exists, but no Firebase data -> Push local data to cloud
+                    console.log("No cloud data. Pushing local data to cloud.");
+                    mergedData = localData;
+                    needsSync = true;
+                } else if (localData.length > 0 && firebaseData.length > 0) {
+                    // Case 3: Both exist, perform the merge
+                    console.log("Merging local and cloud data.");
+                    const mergedMap = new Map(firebaseData.map(g => [g.id, g]));
+
+                    localData.forEach(localGoal => {
+                        const firebaseGoal = mergedMap.get(localGoal.id);
+                        if (firebaseGoal) {
+                            // Goal exists in both, merge them
+                            const mergedGoal = {
+                                ...localGoal, // Local changes (name, disabled) win
+                                activeDays: [...new Set([...firebaseGoal.activeDays, ...localGoal.activeDays])] // Union of active days
+                            };
+                            mergedMap.set(localGoal.id, mergedGoal);
+                        } else {
+                            // Goal is only local, add it
+                            mergedMap.set(localGoal.id, localGoal);
+                        }
+                    });
+
+                    mergedData = Array.from(mergedMap.values());
+                    
+                    // Check if a sync is actually needed by comparing the final state to both sources
+                    if (JSON.stringify(mergedData) !== localDataString || JSON.stringify(mergedData) !== firebaseDataString) {
+                         needsSync = true;
+                    }
                 } else {
-                    // If no data on firebase, just load whatever is local (or generate fresh)
-                    console.log("No Firebase data found for this month. Using local data.");
-                    generateTracker();
+                    // Case 4: No data anywhere, use empty array.
+                    mergedData = [];
                 }
+                
+                // 3. Save merged data back to storage and cloud if needed
+                if (needsSync) {
+                    console.log("Sync required. Updating storage and cloud.");
+                    const mergedDataString = JSON.stringify(mergedData);
+                    localStorage.setItem(storageKey, mergedDataString);
+                    await saveGoalsToFirebase(mergedDataString); // Push merged to cloud
+                }
+                
+                // 4. Finally, render the tracker with the definitive data
+                generateTracker();
+
             } catch (error) {
-                console.error("Error loading data from Firebase:", error);
+                console.error("Error syncing data with Firebase:", error);
                 alert(translations[currentLanguage]['error-loading-data']);
+                generateTracker(); // Still try to generate from whatever is local on error
             }
         }
     </script>
@@ -494,7 +552,7 @@
             <div class="toolbar">
                 <div class="date-group">
                     <input type="tel" id="dateInput" inputmode="numeric" pattern="[0-9.]*">
-                    <button class="btn-update" onclick="generateTracker()" data-translate="go">Go</button>
+                    <button class="btn-update" onclick="auth.currentUser ? syncWithFirebase() : generateTracker()" data-translate="go">Go</button>
                 </div>
 
                 <div class="icon-btn">
@@ -565,6 +623,8 @@
         let currentChartType = 'line';
         let isCurrentMonthForChart = false;
 
+        const generateUniqueId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
+
         document.addEventListener('mousedown', () => isMouseDown = true);
         document.addEventListener('mouseup', () => isMouseDown = false);
 
@@ -596,7 +656,11 @@
                 }
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    generateTracker();
+                    if (auth.currentUser) {
+                        syncWithFirebase();
+                    } else {
+                        generateTracker();
+                    }
                 }
             });
 
@@ -652,7 +716,7 @@
                 input.selectionStart = input.selectionEnd = start + filteredData.length;
             });
 
-            generateTracker();
+            // The onAuthStateChanged listener now handles the initial load.
 
             const tableWrapper = document.querySelector('.table-wrapper');
             if (tableWrapper) {
@@ -698,35 +762,40 @@
             localStorage.setItem('app_chart_type', currentChartType);
         }
 
-        function saveDataForMonth() {
-            const dateKey = document.getElementById('dateInput').value;
-            localStorage.setItem('last_active_date', dateKey);
-
-            const goalsData = [];
-            const rows = document.querySelectorAll('.goal-row');
+function migrateDataToIds(goalsData) {
+            if (!goalsData || !Array.isArray(goalsData) || goalsData.length === 0) {
+                return goalsData;
+            }
             
-            rows.forEach(row => {
-                const name = row.querySelector('.goal-input').value;
-                const isDisabled = row.classList.contains('disabled');
-                const activeDays = [];
-                row.querySelectorAll('.check-cell.active').forEach(cell => {
-                    activeDays.push(parseInt(cell.dataset.day));
-                });
-                goalsData.push({ name: name, activeDays: activeDays, disabled: isDisabled });
-            });
+            // If the first goal already has an ID, we assume the data is migrated.
+            if (goalsData[0].id) {
+                return goalsData;
+            }
 
-            const storageKey = `goals_data_${dateKey}`;
-            const dataString = JSON.stringify(goalsData);
-            localStorage.setItem(storageKey, dataString);
-
-            // Automatically save to the cloud with a debounce
-            debouncedSaveToFirebase(dataString);
+            // If not, we migrate the whole array.
+            return goalsData.map(goal => ({
+                id: generateUniqueId(),
+                ...goal
+            }));
         }
 
         function loadDataForMonth(dateKey) {
             const storageKey = `goals_data_${dateKey}`;
             const json = localStorage.getItem(storageKey);
-            return json ? JSON.parse(json) : null;
+            if (!json) return null;
+            
+            let goalsData = JSON.parse(json);
+            
+            // Run migration to ensure all goals have IDs
+            const migratedData = migrateDataToIds(goalsData);
+            
+            // If migration happened, we should probably save the migrated data back to localStorage
+            // to avoid doing this every time.
+            if (JSON.stringify(migratedData) !== json) {
+                localStorage.setItem(storageKey, JSON.stringify(migratedData));
+            }
+
+            return migratedData;
         }
 
         function toggleTheme() {
@@ -856,11 +925,11 @@
 
             if (savedData && savedData.length > 0) {
                 savedData.forEach(goalObj => {
-                    addGoalRow(goalObj.name, table, goalObj.activeDays, goalObj.disabled);
+                    addGoalRow(goalObj, table);
                 });
             } else {
                 for (let i = 1; i <= 5; i++) {
-                    addGoalRow(`${translations[currentLanguage]['goals'] || 'Goal'} ${i}`, table, []);
+                    addGoalRow({ name: `${translations[currentLanguage]['goals'] || 'Goal'} ${i}` }, table);
                 }
             }
 
@@ -880,7 +949,14 @@
             }
         }
 
-        function addGoalRow(goalName, tableRef, activeDays = [], isDisabled = false) {
+        function addGoalRow(goal = {}, tableRef) {
+            const { name = '', activeDays = [], disabled = false } = goal;
+            let { id = null } = goal;
+
+            if (!id) {
+                id = generateUniqueId();
+            }
+
             const table = tableRef || document.getElementById('trackerTable');
             
             let insertIndex = table.rows.length;
@@ -888,7 +964,9 @@
             
             let row = table.insertRow(insertIndex);
             row.className = 'goal-row';
-            if (isDisabled) {
+            row.dataset.goalId = id; // Set the unique ID on the row
+
+            if (disabled) {
                 row.classList.add('disabled');
             }
 
@@ -896,8 +974,8 @@
             cellName.className = 'sticky-col';
             cellName.innerHTML = `
                 <div class="goal-wrapper">
-                    <span class="goal-text">${goalName}</span>
-                    <input type="text" class="goal-input is-hidden" value="${goalName}" />
+                    <span class="goal-text">${name}</span>
+                    <input type="text" class="goal-input is-hidden" value="${name}" />
                     <button class="btn-delete-goal" onclick="deleteGoalRow(this)" title="Ziel löschen">&times;</button>
                 </div>
             `;
@@ -1031,7 +1109,7 @@
         }
 
         function addNewGoal() {
-            addGoalRow("", null, []);
+            addGoalRow({}, null);
         }
 
         function deleteGoalRow(btn) {
