@@ -21,7 +21,9 @@ const translations = {
         "data-loaded-success": "Data successfully loaded from Firebase and applied!",
         "error-loading-data": "Error loading data from Firebase.",
         "delete-goal-confirm": "Are you sure you want to delete this goal?",
-        "invalid-date": "Invalid date format. Please use MM.YYYY"
+        "invalid-date": "Invalid date format. Please use MM.YYYY",
+        "invalid-month": "Invalid month. Please enter a month between 01 and 12.",
+        "weekdays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
     },
     de: {
         "my-goals": "Meine Ziele",
@@ -45,7 +47,9 @@ const translations = {
         "data-loaded-success": "Daten erfolgreich aus Firebase geladen und angewendet!",
         "error-loading-data": "Fehler beim Laden der Daten aus Firebase.",
         "delete-goal-confirm": "Ziel wirklich löschen?",
-        "invalid-date": "Ungültiges Datumsformat. Bitte MM.JJJJ verwenden"
+        "invalid-date": "Ungültiges Datumsformat. Bitte MM.JJJJ verwenden",
+        "invalid-month": "Ungültiger Monat. Bitte geben Sie einen Monat zwischen 01 und 12 ein.",
+        "weekdays": ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
     },
     ch: {
         "my-goals": "Mini Ziel",
@@ -69,7 +73,9 @@ const translations = {
         "data-loaded-success": "Date erfolgriich us de Firebase glade und agwändet!",
         "error-loading-data": "Fähler bim Lade vo de Date us de Firebase.",
         "delete-goal-confirm": "Bisch sicher dass das Ziel wötsch lösche?",
-        "invalid-date": "Ungültigs Datumsformat. Bitte MM.JJJJ bruuche."
+        "invalid-date": "Ungültigs Datumsformat. Bitte MM.JJJJ bruuche.",
+        "invalid-month": "Ungültige Monet. Bitte gib en Monet zwüsched 01 und 12 ii.",
+        "weekdays": ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
     }
 };
 
@@ -113,13 +119,6 @@ function setLanguage(lang) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const savedLang = localStorage.getItem('app_language');
-    if (savedLang && translations[savedLang]) {
-        setLanguage(savedLang);
-    } else {
-        setLanguage('en'); // Set default
-    }
-
     const selector = document.getElementById('languageSelector');
     if(selector) {
         selector.addEventListener('click', (event) => {
@@ -136,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         option.addEventListener('click', function(event) {
             event.stopPropagation(); // Prevent the main selector from immediately closing
             setLanguage(this.dataset.lang);
+            generateTracker(); // Re-render the tracker after changing language
         });
     });
 
