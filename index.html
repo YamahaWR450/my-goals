@@ -1051,6 +1051,34 @@
             localStorage.setItem('app_chart_type', currentChartType);
         }
 
+        function saveDataForMonth() {
+            const dateKey = document.getElementById('dateInput').value;
+            localStorage.setItem('last_active_date', dateKey);
+
+            const goalsData = [];
+            const rows = document.querySelectorAll('.goal-row');
+            
+            rows.forEach(row => {
+                const id = row.dataset.goalId;
+                const name = row.querySelector('.goal-input').value;
+                const isDisabled = row.classList.contains('disabled');
+                const activeDays = [];
+                row.querySelectorAll('.check-cell.active').forEach(cell => {
+                    activeDays.push(parseInt(cell.dataset.day));
+                });
+                goalsData.push({ id: id, name: name, activeDays: activeDays, disabled: isDisabled });
+            });
+
+            const storageKey = `goals_data_${dateKey}`;
+            const dataString = JSON.stringify(goalsData);
+            
+            // Only save and sync if data has actually changed
+            if (dataString !== localStorage.getItem(storageKey)) {
+                localStorage.setItem(storageKey, dataString);
+                debouncedSaveToFirebase(dataString);
+            }
+        }
+
 function migrateDataToIds(goalsData) {
             if (!goalsData || !Array.isArray(goalsData) || goalsData.length === 0) {
                 return goalsData;
