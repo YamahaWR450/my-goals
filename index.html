@@ -452,18 +452,6 @@
         }
         body.dark-mode h1 { text-shadow: 2px 2px 0px rgba(0,0,0,0.5); }
 
-        .actions-container {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-        }
-
-        #authStatus {
-            font-size: 14px;
-            color: var(--text-muted);
-            text-align: right;
-        }
-
         .toolbar { display: flex; align-items: center; gap: 10px; }
 
         .date-group {
@@ -704,57 +692,103 @@
         <header>
             <h1 data-translate="my-goals">My Goals</h1>
             
-            <div class="actions-container">
-                <div class="toolbar">
-                    <div class="date-group">
-                        <input type="tel" id="dateInput" inputmode="numeric" pattern="[0-9.]*">
-                        <button class="btn-update" onclick="auth.currentUser ? syncWithFirebase() : generateTracker()" data-translate="go">Go</button>
-                    </div>
-
-                    <div class="icon-btn">
-                        <div id="colorPreview"></div>
-                        <input type="color" id="colorPicker" value="#00AAFF" oninput="changeColor(this.value, true)">
-                    </div>
-
-                    <div class="icon-btn" onclick="toggleTheme()">
-                        <svg id="themeIcon" viewBox="0 0 24 24">
-                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                        </svg>
-                    </div>
-
-                    <div class="icon-btn" onclick="toggleChartType()">
-                        <svg id="chartTypeIcon" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M6,16.5V10H4.5V16.5H6M10.5,16.5V4.5H9V16.5H10.5M15,16.5V7.5H13.5V16.5H15M19.5,16.5V13.5H18V16.5H19.5M21,2H3A1,1 0 0,0 2,3V18A1,1 0 0,0 3,19H21A1,1 0 0,0 22,18V3A1,1 0 0,0 21,2Z"></path>
-                        </svg>
-                    </div>
-
-                    <!-- Language Selector -->
-                    <div class="language-selector-wrapper">
-                        <div id="languageSelector" class="icon-btn">
-                            <span class="main-flag">🇬🇧</span>
-                            <div id="languageDropdown">
-                                <span class="lang-option" data-lang="en">🇬🇧</span>
-                                <span class="lang-option" data-lang="de">🇩🇪</span>
-                                <span class="lang-option" data-lang="ch">🇨🇭</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Firebase Auth Buttons -->
-                    <div class="icon-btn" id="loginButton" onclick="signInWithGoogle()">
-                        <img src="G.jpg" alt="Google Logo" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
-                    </div>
-                    <div class="icon-btn" id="logoutButton" onclick="signOutFirebase()" style="display: none;">
-                        <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(calc(-50% + 1px), -50%);">
-                            <path fill="currentColor" d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.59L17 17L22 12L17 7ZM2 2H12A2 2 0 0 1 14 4V8H12V4H2V20H12V16H14V20A2 2 0 0 1 12 22H2A2 2 0 0 1 0 20V4A2 2 0 0 1 2 2Z"/>
-                        </svg>
-                    </div>
-                </div>
-                <div style="margin-top: 5px;">
-                    <span id="authStatus" data-translate="not-logged-in">Not logged in</span>
-                </div>
-            </div>
-        </header>
+                                    <div class="toolbar">
+            
+                                        <div class="date-group">
+            
+                                            <input type="tel" id="dateInput" inputmode="numeric" pattern="[0-9.]*">
+            
+                                            <button class="btn-update" onclick="auth.currentUser ? syncWithFirebase() : generateTracker()" data-translate="go">Go</button>
+            
+                                        </div>
+            
+                        
+            
+                                        <div class="icon-btn">
+            
+                                            <div id="colorPreview"></div>
+            
+                                            <input type="color" id="colorPicker" value="#00AAFF" oninput="changeColor(this.value, true)">
+            
+                                        </div>
+            
+                        
+            
+                                        <div class="icon-btn" onclick="toggleTheme()">
+            
+                                            <svg id="themeIcon" viewBox="0 0 24 24">
+            
+                                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            
+                                            </svg>
+            
+                                        </div>
+            
+                        
+            
+                                        <div class="icon-btn" onclick="toggleChartType()">
+            
+                                            <svg id="chartTypeIcon" viewBox="0 0 24 24" fill="currentColor">
+            
+                                                <path d="M6,16.5V10H4.5V16.5H6M10.5,16.5V4.5H9V16.5H10.5M15,16.5V7.5H13.5V16.5H15M19.5,16.5V13.5H18V16.5H19.5M21,2H3A1,1 0 0,0 2,3V18A1,1 0 0,0 3,19H21A1,1 0 0,0 22,18V3A1,1 0 0,0 21,2Z"></path>
+            
+                                            </svg>
+            
+                                        </div>
+            
+                        
+            
+                                        <!-- Language Selector -->
+            
+                                        <div class="language-selector-wrapper">
+            
+                                            <div id="languageSelector" class="icon-btn">
+            
+                                                <span class="main-flag">🇬🇧</span>
+            
+                                                <div id="languageDropdown">
+            
+                                                    <span class="lang-option" data-lang="en">🇬🇧</span>
+            
+                                                    <span class="lang-option" data-lang="de">🇩🇪</span>
+            
+                                                    <span class="lang-option" data-lang="ch">🇨🇭</span>
+            
+                                                </div>
+            
+                                            </div>
+            
+                                        </div>
+            
+                        
+            
+                                        <!-- Firebase Auth Buttons -->
+            
+                                        <div class="icon-btn" id="loginButton" onclick="signInWithGoogle()">
+            
+                                            <img src="G.jpg" alt="Google Logo" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;">
+            
+                                        </div>
+            
+                                        <div class="icon-btn" id="logoutButton" onclick="signOutFirebase()" style="display: none;">
+            
+                                            <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; position: absolute; top: 50%; left: 50%; transform: translate(calc(-50% + 1px), -50%);">
+            
+                                                <path fill="currentColor" d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.59L17 17L22 12L17 7ZM2 2H12A2 2 0 0 1 14 4V8H12V4H2V20H12V16H14V20A2 2 0 0 1 12 22H2A2 2 0 0 1 0 20V4A2 2 0 0 1 2 2Z"/>
+            
+                                            </svg>
+            
+                                        </div>
+            
+                                    </div>
+            
+                                    <div style="width: 300px; text-align: right;">
+            
+                                        <span id="authStatus" data-translate="not-logged-in" style="font-size: 14px; color: var(--text-muted);">Not logged in</span>
+            
+                                    </div>
+            
+                                </header>
 
         <div class="table-wrapper">
             <table id="trackerTable"></table>
