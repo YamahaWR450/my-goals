@@ -1383,13 +1383,10 @@ function migrateDataToIds(goalsData) {
         }
 
         function deleteGoalRow(btn) {
-            if(confirm(translations[currentLanguage]['delete-goal-confirm'])) {
-                const row = btn.closest('tr');
-                row.remove();
-                calculateScores(true);
-            }
+            const row = btn.closest('tr');
+            row.remove();
+            calculateScores(true);
         }
-
         function setCellState(cell, active) {
             if (active) cell.classList.add('active');
             else cell.classList.remove('active');
