@@ -1301,6 +1301,20 @@ function migrateDataToIds(goalsData) {
                 }
             });
 
+            goalInput.addEventListener('input', () => {
+                const newValue = goalInput.value;
+                const row = goalInput.closest('.goal-row');
+                if (row) {
+                    const activeCheckboxes = row.querySelectorAll('.check-cell.active').length;
+                    if (newValue.trim() === '' && activeCheckboxes === 0) {
+                        if (document.querySelectorAll('.goal-row').length > 1) {
+                            row.remove();
+                            calculateScores(true); // Recalculate scores and save
+                        }
+                    }
+                }
+            });
+
             const today = new Date();
             const dateInput = document.getElementById('dateInput').value.split('.');
             const currentYear = parseInt(dateInput[1]);
