@@ -117,18 +117,21 @@
         // Firebase Auth State Listener
         firebase.auth().onAuthStateChanged(user => {
             const authStatus = document.getElementById('authStatus');
+            const manualSyncButton = document.getElementById('manualSyncButton');
 
             if (user) {
                 authStatus.setAttribute('data-translate', 'logged-in-as');
                 authStatus.innerText = `${translations[currentLanguage]['logged-in-as']}: ${user.displayName} (Auto-Sync On)`;
                 document.getElementById('loginButton').style.display = 'none';
                 document.getElementById('logoutButton').style.display = 'inline-block';
+                if (manualSyncButton) manualSyncButton.style.display = 'flex'; // Show manual sync button
                 syncWithFirebase(); // Sync data with merge logic when user logs in
             } else {
                 authStatus.setAttribute('data-translate', 'not-logged-in');
                 authStatus.innerText = translations[currentLanguage]['not-logged-in'];
                 document.getElementById('loginButton').style.display = 'inline-block';
                 document.getElementById('logoutButton').style.display = 'none';
+                if (manualSyncButton) manualSyncButton.style.display = 'none'; // Hide manual sync button
                 generateTracker(); // When user logs out, just show local data.
             }
         });
@@ -185,22 +188,18 @@
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 
-                // Show saved status, then revert
+                // Show saved status, then revert after 2 seconds
                 authStatus.innerText = `Gespeichert!`;
                 setTimeout(() => {
-                    if (user && authStatus.innerText === `Gespeichert!`) { // Only revert if no other status change happened
+                    // Only revert if the status hasn't been changed by another operation meanwhile
+                    if (user && authStatus.innerText === `Gespeichert!`) {
                          authStatus.innerText = `${translations[currentLanguage]['logged-in-as'] || 'Logged in as'}: ${user.displayName} (Auto-Sync On)`;
                     }
-                }, 2000); // Revert after 2 seconds
+                }, 2000);
 
             } catch (error) {
                 console.error("Error saving data to Firebase:", error);
-                authStatus.innerText = `Speicherfehler!`;
-                setTimeout(() => {
-                    if (user && authStatus.innerText === `Speicherfehler!`) { // Only revert if no other status change happened
-                         authStatus.innerText = `${translations[currentLanguage]['logged-in-as'] || 'Logged in as'}: ${user.displayName} (Auto-Sync On)`;
-                    }
-                }, 3000); // Revert after 3 seconds for error
+                authStatus.innerText = `Cloud-Speicherfehler!`;
             }
         }
 
@@ -285,7 +284,7 @@
         
                     } catch (error) {
                         console.error("Error syncing data with Firebase:", error);
-                        authStatus.innerText = `Synchronisierungsfehler!`;
+                        authStatus.innerText = `Cloud-Fehler! API aktivieren?`;
                         generateTracker(); 
                     }
                 }
@@ -664,6 +663,13 @@
                 <div class="icon-btn" onclick="toggleChartType()">
                     <svg id="chartTypeIcon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M6,16.5V10H4.5V16.5H6M10.5,16.5V4.5H9V16.5H10.5M15,16.5V7.5H13.5V16.5H15M19.5,16.5V13.5H18V16.5H19.5M21,2H3A1,1 0 0,0 2,3V18A1,1 0 0,0 3,19H21A1,1 0 0,0 22,18V3A1,1 0 0,0 21,2Z"></path>
+                    </svg>
+                </div>
+
+                <!-- Manual Sync Button -->
+                <div class="icon-btn" id="manualSyncButton" onclick="syncWithFirebase()" style="display: none;" title="Manuell synchronisieren">
+                    <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: var(--text-muted);">
+                        <path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4.22,17.22L5.64,15.8C4.54,14.54 4,12.87 4,11A6,6 0 0,1 10,5C11.57,5 13.01,5.65 14.07,6.72L11,10h7V3l-2.35,2.35Z"></path>
                     </svg>
                 </div>
 
